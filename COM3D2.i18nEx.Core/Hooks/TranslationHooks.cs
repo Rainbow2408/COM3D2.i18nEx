@@ -30,10 +30,10 @@ namespace COM3D2.i18nEx.Core.Hooks
 
         [HarmonyPatch(typeof(Product), nameof(Product.subTitleScenarioLanguage), MethodType.Getter)]
         [HarmonyPostfix]
-        private static void SupportSubtitle(ref Product.Language __result)
+        private static void SubtitleScenarioLanguage(ref Product.Language __result)
         {
             // TODO: Might need smarter logic if/when game supports multiple TL
-            __result = Product.Language.English;
+            __result = Product.systemLanguage;
         }
 
         [HarmonyPatch(typeof(Product), nameof(Product.IsSupportLanguage))]

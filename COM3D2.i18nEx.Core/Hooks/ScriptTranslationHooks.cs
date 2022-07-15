@@ -16,7 +16,10 @@ namespace COM3D2.i18nEx.Core.Hooks
 
         private static string TlSeparator =>
             tlSeparator ??= LocalizationManager.ScriptTranslationMark
-                                               .FirstOrDefault(kv => kv.Value == Product.subTitleScenarioLanguage).Key;
+                                               .FirstOrDefault(kv => kv.Value == DefaultSubTitleSL).Key;
+
+        private static Product.Language DefaultSubTitleSL = 
+            (Product.subTitleScenarioLanguage != Product.Language.Japanese) ? Product.subTitleScenarioLanguage : Product.Language.English;
 
         public static void Initialize()
         {
@@ -50,7 +53,8 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (subData.Count == 1 && subData[0].startTime == 0)
             {
                 var data = subData[0];
-                ___subtitle_data.text = $"{data.original}<{TlSeparator}>{data.translation}";
+                if (!MutiLangText(data.original, data.translation, ref ___subtitle_data.text))
+                    ___subtitle_data.text = $"{data.original}<{TlSeparator}>{data.translation}";
                 ___subtitle_data.displayTime = data.displayTime;
                 ___subtitle_data.addDisplayTime = data.addDisplayTime;
                 ___subtitle_data.casinoType = data.isCasino;
@@ -59,9 +63,14 @@ namespace COM3D2.i18nEx.Core.Hooks
             {
                 sub.autoDestroy = true;
                 foreach (var subtitleData in subData)
-                    sub.AddData($"{subtitleData.original}<{TlSeparator}>{subtitleData.translation}",
+                {
+                    string text = string.Empty;
+                    if (!MutiLangText(subtitleData.original, subtitleData.translation, ref text))
+                        text = $"{subtitleData.original}<{TlSeparator}>{subtitleData.translation}";
+                    sub.AddData(text,
                                 subtitleData.startTime,
                                 subtitleData.displayTime);
+                }
                 sub.Play();
             }
         }
@@ -102,13 +111,13 @@ namespace COM3D2.i18nEx.Core.Hooks
         [HarmonyPostfix]
         private static void OnGetTranslationText(ref LocalizationString __result)
         {
-            if (!__result.IsEmpty(Product.subTitleScenarioLanguage))
+            if (!__result.IsEmpty(DefaultSubTitleSL))
                 return;
             var orig = __result[Product.baseScenarioLanguage];
             if (!I2.Loc.LocalizationManager.TryGetTranslation($"SubMaid/{orig}/名前", out var tl))
                 tl = Core.ScriptTranslate.GetTranslation(null, orig);
             var tls = __result.ToDictionary(kv => kv.Key, kv => kv.Value);
-            tls[Product.subTitleScenarioLanguage] = tl;
+            tls[DefaultSubTitleSL] = tl;
             if (!string.IsNullOrEmpty(tl))
                 foreach (var language in tls.Keys.ToList())
                     tls[language] = XUATInterop.MarkTranslated(tls[language]);
@@ -139,9 +148,10 @@ namespace COM3D2.i18nEx.Core.Hooks
             ProcessTranslation(fileName, ref translationParts);
 
             var orig = translationParts[Product.baseScenarioLanguage];
-            var tl = translationParts[Product.subTitleScenarioLanguage];
+            var tl = translationParts[DefaultSubTitleSL];
 
-            if (!string.IsNullOrEmpty(tl))
+            if (MutiLangText(orig, tl, ref text)) return true;
+            else if (!string.IsNullOrEmpty(tl))
             {
                 text = $"{orig}<{TlSeparator}>{tl}";
                 if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToJapanese)
@@ -167,12 +177,42 @@ namespace COM3D2.i18nEx.Core.Hooks
 
             return false;
         }
+        private static bool MutiLangText(string orig, string tl, ref string text)
+        {
+            tl = tl.Replace("\u180E", "");
+            int idx = tl.IndexOf('<');
+            bool AllowJpTL = Configuration.ScriptTranslations.AllowJpTranslate.Value;
 
+            if (idx != -1)
+            {
+                string GetTl = GetTlwithTlSeparator(tl, TlSeparator);
+                text = (idx == 0) ? $"{orig}{tl}" : (AllowJpTL ? $"{tl}" : $"{orig}{tl.Substring(idx)}");
+                if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToJapanese)
+                    text = (idx == 0) ? $"{GetTl}{tl}" : $"{GetTl}{tl.Substring(idx)}";
+                else if (GetTl == string.Empty)
+                {
+                    text = text.Replace($"<{TlSeparator.ToLower()}>", "").Replace($"<{TlSeparator.ToUpper()}>", "");
+                    text += $"<{TlSeparator}>";
+                    if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToEnglish)
+                        text += orig;
+                }
+                return true;
+            }
+            return false;
+        }
+        private static string GetTlwithTlSeparator(string tl, string tlSeparator)
+        {
+            if (tl.IndexOf($"<{tlSeparator}>", System.StringComparison.OrdinalIgnoreCase) == -1) return string.Empty;
+            tl = tl.Substring(tl.IndexOf($"<{tlSeparator}>", System.StringComparison.OrdinalIgnoreCase));
+            tl = tl.Substring(tl.IndexOf('>') + 1);
+            if (tl.IndexOf('<') != -1) tl = tl.Substring(0, tl.IndexOf('<'));
+            return tl;
+        }
         private static void ProcessTranslation(string fileName, ref LocalizationString tlString)
         {
             // TODO: Support for multi language
             var orig = tlString[Product.baseScenarioLanguage];
-            var tl = tlString[Product.subTitleScenarioLanguage];
+            var tl = tlString[DefaultSubTitleSL];
             if (string.IsNullOrEmpty(orig))
             {
                 if (Configuration.ScriptTranslations.VerboseLogging.Value)
@@ -194,7 +234,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (!string.IsNullOrEmpty(res))
             {
                 var tls = tlString.ToDictionary(kv => kv.Key, kv => kv.Value);
-                tls[Product.subTitleScenarioLanguage] = res;
+                tls[DefaultSubTitleSL] = res;
                 foreach (var language in tls.Keys.ToList())
                     tls[language] = XUATInterop.MarkTranslated(tls[language]);
                 

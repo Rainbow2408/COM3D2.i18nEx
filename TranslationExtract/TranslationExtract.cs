@@ -54,13 +54,49 @@ namespace TranslationExtract
                 var prefixes = toString(item);
                 var translations = toTranslation(item);
 
+                int j = 0;
                 foreach (var (prefix, tl) in prefixes.ZipWith(translations))
                 {
                     if (skipIfExists && LocalizationManager.TryGetTranslation($"{csvFile}/{prefix}", out var _))
                         continue;
 
-                    var csvName = EscapeCSVItem(tl);
-                    sw.WriteLine($"{toString(item)},Text,,{csvName},{csvName}");
+                    if (toString(item).GetType().Equals(typeof(string[])))
+                    {
+                        ArrayList key_list = new();
+                        foreach (var value in toString(item))
+                            key_list.Add(value);
+
+                        string keyValue = (string)key_list[j];
+                        if (keyValue.Contains("条件文/") && keyValue.Contains("\n"))
+                        {
+                            string[] keySplit = keyValue.Substring(keyValue.IndexOf('/') + 1).Split('\n');
+                            string[] csvSplit = tl.Split('\n');
+                            if (keySplit.Length != csvSplit.Length)
+                            {
+                                Debug.Log($"KeyDebug:【Pos Error!】");
+                                continue;
+                            }
+                            int k = 0;
+                            foreach (var csvSub in csvSplit)
+                            {
+                                if (csvSub == string.Empty || csvSub == "") continue;
+                                var csvName = EscapeCSVItem(csvSub);
+                                sw.WriteLine($"条件文/{keySplit[k]},Text,{j}_{k},{csvName},{csvName}");
+                                k++;
+                            }
+                        }
+                        else
+                        {
+                            var csvName = EscapeCSVItem(tl);
+                            sw.WriteLine($"{keyValue},Text,{j},{csvName},{csvName}");
+                        }
+                    }
+                    else
+                    {
+                        var csvName = EscapeCSVItem(tl);
+                        sw.WriteLine($"{toString(item)},Text,,{csvName},{csvName}");
+                    }
+                    j++;
                 }
             }
         }
@@ -120,7 +156,7 @@ namespace TranslationExtract
             void Window(int id)
             {
                 GUILayout.BeginArea(new Rect(MARGIN_X, MARGIN_TOP, WIDTH - MARGIN_X * 2,
-                                             HEIGHT                      - MARGIN_TOP - MARGIN_BOTTOM));
+                                             HEIGHT - MARGIN_TOP - MARGIN_BOTTOM));
                 {
                     GUILayout.BeginVertical();
                     {
@@ -137,6 +173,7 @@ namespace TranslationExtract
                         Toggle("Event names", ref options.dumpEvents);
 
                         GUILayout.Label("Other");
+                        Toggle("Japanese in translate", ref options.JpInTranslate);
                         Toggle("Skip translated items", ref options.skipTranslatedItems);
 
                         GUI.enabled = !dumping;
@@ -191,6 +228,9 @@ namespace TranslationExtract
 
             Debug.Log($"Currently selected language is {LocalizationManager.CurrentLanguage}");
             Debug.Log($"There are {LocalizationManager.Sources.Count} language sources");
+            foreach (var Source in LocalizationManager.Sources)
+                Debug.Log($"{Source.name}");
+
 
             foreach (var languageSource in LocalizationManager.Sources)
             {
@@ -338,10 +378,11 @@ namespace TranslationExtract
                             var startTime = int.Parse(talkTiming[0]);
                             var endTime = int.Parse(talkTiming[1]);
                             var parts = SplitTranslation(subSb.ToString());
+                            GetVanillaTranslate(parts.Key, parts.Value, out string Key_, out string Value_);
                             captureSubtitlesList.Add(new SubtitleData
                             {
-                                original = parts.Key,
-                                translation = parts.Value,
+                                original = Key_,
+                                translation = Value_,
                                 startTime = startTime,
                                 displayTime = endTime - startTime
                             });
@@ -359,12 +400,13 @@ namespace TranslationExtract
                     captureSubtitlePlay = true;
                     var sub = ParseTag(trimmedLine.Substring("@SubtitleDisplayForPlayVoice".Length));
                     var text = SplitTranslation(sub["text"]);
+                    GetVanillaTranslate(text.Key, text.Value, out string Key_, out string Value_);
                     subData = new SubtitleData
                     {
                         addDisplayTime = int.Parse(GetOrDefault(sub, "addtime", "0")),
                         displayTime = int.Parse(GetOrDefault(sub, "wait", "-1")),
-                        original = text.Key,
-                        translation = text.Value,
+                        original = Key_,
+                        translation = Value_,
                         isCasino = sub.ContainsKey("mode_c")
                     };
                 }
@@ -418,7 +460,8 @@ namespace TranslationExtract
                         captureTalk = false;
                         var parts = SplitTranslation(sb.ToString());
                         sb.Length = 0;
-                        lineList.Add($"{parts.Key}\t{parts.Value}");
+                        GetVanillaTranslate(parts.Key, parts.Value, out string Key_, out string Value_);
+                        lineList.Add($"{Key_}\t{Value_}");
                         continue;
                     }
 
@@ -435,7 +478,8 @@ namespace TranslationExtract
 
                     var m = match.Groups["text"];
                     var parts = SplitTranslation(m.Value);
-                    lineList.Add($"{parts.Key}\t{parts.Value}");
+                    GetVanillaTranslate(parts.Key, parts.Value, out string Key_, out string Value_);
+                    lineList.Add($"{Key_}\t{Value_}");
                 }
             }
 
@@ -443,7 +487,7 @@ namespace TranslationExtract
                 File.WriteAllLines(Path.Combine(dir, $"{name}.txt"), lineList.ToArray(), UTF8);
         }
 
-        private void DumpScripts()
+        private void DumpScripts(DumpOptions opts)
         {
             Debug.Log("Dumping game script translations...");
             Debug.Log("Getting all script files...");
@@ -460,11 +504,28 @@ namespace TranslationExtract
 
             var tlDir = Path.Combine(TL_DIR, "Script");
             var namesFile = Path.Combine(tlDir, "__npc_names.txt");
-            File.WriteAllLines(namesFile, NpcNames.Select(n => $"{n.Key}\t{n.Value}").ToArray(), UTF8);
+            File.WriteAllLines(namesFile, NpcNames.Select(n =>
+            {
+                GetVanillaTranslate(n.Key, n.Value, out string Key_, out string Value_, opts.JpInTranslate);
+                return $"{Key_}\t{Value_}";
+            }).ToArray(), UTF8);
             NpcNames.Clear();
             filesToSkip.Clear();
         }
-
+        private void GetVanillaTranslate(string Key, string Value, out string Key_, out string Value_, bool jp = false)
+        {
+            int idx = Key.IndexOf('<');
+            if (idx != -1)
+            {
+                Key_ = Key.Substring(0, idx);
+                Value_ = jp ? $"{Key}<E>{Value}" : $"{Key.Substring(idx)}<E>{Value}";
+            }
+            else
+            {
+                Key_ = Key;
+                Value_ = Value;
+            }
+        }
         private void DumpScenarioEvents(DumpOptions opts)
         {
             var i2Path = Path.Combine(TL_DIR, "UI");
@@ -480,12 +541,13 @@ namespace TranslationExtract
             sw.WriteCSV("select_scenario_data.nei", "SceneScenarioSelect",
                         (parser, i) => new
                         {
-                            id = parser.GetCellAsInteger(0, i),
-                            name = parser.GetCellAsString(1, i),
-                            description = parser.GetCellAsString(2, i)
+                            ID = parser.GetCellAsInteger(0, i),
+                            Title = parser.GetCellAsString(1, i),
+                            EventContents = parser.GetCellAsString(2, i),
+                            ConditionText = parser.GetCellAsString(22, i)
                         },
-                        arg => new[] { $"{arg.id}/タイトル", $"{arg.id}/内容" },
-                        arg => new[] { arg.name, arg.description });
+                        arg => new[] { $"{arg.ID}/タイトル", $"{arg.ID}/内容", $"条件文/{arg.ConditionText}" },
+                        arg => new[] { arg.Title, arg.EventContents, arg.ConditionText });
         }
 
         private void DumpItemNames(DumpOptions opts)
@@ -546,10 +608,10 @@ namespace TranslationExtract
             void WriteSimpleData(string file, string prefix, StreamWriter sw, int dataCol = 2, int idCol = 1)
             {
                 sw.WriteCSV(file, "MaidStatus", (parser, i) => new
-                            {
-                                uniqueName = parser.GetCellAsString(idCol, i),
-                                displayName = parser.GetCellAsString(dataCol, i)
-                            },
+                {
+                    uniqueName = parser.GetCellAsString(idCol, i),
+                    displayName = parser.GetCellAsString(dataCol, i)
+                },
                             arg => new[] { $"{prefix}/{arg.uniqueName}" },
                             arg => new[] { arg.displayName },
                             opts.skipTranslatedItems);
@@ -606,11 +668,8 @@ namespace TranslationExtract
 
                 for (var i = 0; i < scenarioNei.max_cell_y; i++)
                 {
-                    if (!scenarioNei.IsCellToExistData(0, i))
-                    {
-                        i += 2;
+                    if (scenarioNei.IsCellToExistData(0, i) && !int.TryParse(scenarioNei.GetCellAsString(0, i), out var _))
                         continue;
-                    }
 
                     var commandName = scenarioNei.GetCellAsString(2, i);
 
@@ -621,6 +680,8 @@ namespace TranslationExtract
                     if (commandNames.Contains(commandName))
                         continue;
 
+                    if (commandName == string.Empty || commandName == "")
+                        continue;
                     commandNames.Add(commandName);
 
                     var csvName = EscapeCSVItem(commandName);
@@ -642,10 +703,10 @@ namespace TranslationExtract
 
             sw.WriteLine("Key,Type,Desc,Japanese,English");
             sw.WriteCSV("schedule_work_night.nei", "ScreneDaily", (parser, i) => new
-                        {
-                            vipName = parser.GetCellAsString(1, i),
-                            vipDescription = parser.GetCellAsString(7, i)
-                        },
+            {
+                vipName = parser.GetCellAsString(1, i),
+                vipDescription = parser.GetCellAsString(7, i)
+            },
                         arg => new[] { $"スケジュール/項目/{arg.vipName}", $"スケジュール/説明/{arg.vipDescription}" },
                         arg => new[] { arg.vipName, arg.vipDescription },
                         opts.skipTranslatedItems);
@@ -666,7 +727,7 @@ namespace TranslationExtract
                 DumpUI();
 
             if (opts.dumpScripts)
-                DumpScripts();
+                DumpScripts(opts);
 
             if (opts.dumpItemNames)
                 DumpItemNames(opts);
@@ -710,6 +771,7 @@ namespace TranslationExtract
             public bool dumpUITranslations = true;
             public bool dumpVIPEvents;
             public bool dumpYotogis;
+            public bool JpInTranslate;
             public bool skipTranslatedItems;
             public DumpOptions() { }
 
@@ -722,6 +784,7 @@ namespace TranslationExtract
                 dumpYotogis = other.dumpYotogis;
                 dumpPersonalies = other.dumpPersonalies;
                 dumpEvents = other.dumpEvents;
+                JpInTranslate = other.JpInTranslate;
                 skipTranslatedItems = other.skipTranslatedItems;
             }
         }
