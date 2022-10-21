@@ -29,7 +29,7 @@ namespace COM3D2.i18nEx.Core
                 var key = scriptSection["InsertJapaneseTextIntoEnglishText"];
                 if (bool.TryParse(key.Value, out var val))
                     ScriptTranslations.RerouteTranslationsTo.Value =
-                        val ? TranslationsReroute.RouteToEnglish : TranslationsReroute.None;
+                        val ? TranslationsReroute.RouteToLocal : TranslationsReroute.None;
                 scriptSection.DeleteKey("InsertJapaneseTextIntoEnglishText");
                 configFile.Save(Paths.ConfigurationFilePath);
             }
@@ -111,8 +111,8 @@ namespace COM3D2.i18nEx.Core
             public ConfigWrapper<TranslationsReroute> RerouteTranslationsTo = Wrap(
              "ScriptTranslations",
              "RerouteTranslationsTo",
-             "Allows you to route both English and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. English text is written into English textbox; Japanese into Japanese\nRouteToEnglish -- Puts Japanese text into English textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
-             TranslationsReroute.RouteToJapanese,
+             "Allows you to route both Local and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. English text is written into English textbox; Japanese into Japanese\nRouteToEnglish -- Puts Japanese text into English textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
+             TranslationsReroute.RouteToLocal,
              EnumConverter<TranslationsReroute>
                 .EnumToString,
              EnumConverter<TranslationsReroute>
