@@ -111,7 +111,7 @@ namespace COM3D2.i18nEx.Core
             public ConfigWrapper<TranslationsReroute> RerouteTranslationsTo = Wrap(
              "ScriptTranslations",
              "RerouteTranslationsTo",
-             "Allows you to route both Local and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. English text is written into English textbox; Japanese into Japanese\nRouteToEnglish -- Puts Japanese text into English textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
+             "Allows you to route both Local and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. Local text is written into Local textbox; Japanese into Japanese\nRouteToLocal -- Puts Japanese text into Local textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
              TranslationsReroute.RouteToLocal,
              EnumConverter<TranslationsReroute>
                 .EnumToString,

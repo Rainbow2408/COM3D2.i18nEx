@@ -36,7 +36,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         {
             if (Configuration.General.FixSubtitleType.Value)
             {
-                Configuration.ScriptTranslations.RerouteTranslationsTo.Value = TranslationsReroute.RouteToJapanese;
+                Configuration.ScriptTranslations.RerouteTranslationsTo.Value = TranslationsReroute.RouteToLocal;
                 Configuration.General.FixSubtitleType.Value = false;
                 GameMain.Instance.CMSystem.SubtitleType = SubtitleDisplayManager.DisplayType.Original;
                 GameMain.Instance.CMSystem.SaveIni();
