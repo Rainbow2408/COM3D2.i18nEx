@@ -122,57 +122,6 @@ namespace COM3D2.i18nEx.Core.Hooks
             return null;
         }
 
-        [HarmonyPatch(typeof(LocalizationManager), nameof(LocalizationManager.ScriptTranslationMark), MethodType.Getter)]
-        [HarmonyPostfix]
-        private static void ScriptTranslationMark(ref System.Collections.Generic.Dictionary<string, Product.Language> __result)
-        {
-            __result = new System.Collections.Generic.Dictionary<string, Product.Language>()
-            {
-                {string.Empty,Product.Language.Japanese},
-                {"j",Product.Language.Japanese},
-                {"e",Product.Language.English},
-                {"sc",Product.Language.SimplifiedChinese},
-                {"tc",Product.Language.TraditionalChinese},
-                {"af",Product.Language.Afrikaans},
-                {"ar",Product.Language.Arabic},
-                {"eu",Product.Language.Basque},
-                {"be",Product.Language.Belarusian},
-                {"bg",Product.Language.Bulgarian},
-                {"ca",Product.Language.Catalan},
-                {"cs",Product.Language.Czech},
-                {"da",Product.Language.Danish},
-                {"nl",Product.Language.Dutch},
-                {"et",Product.Language.Estonian},
-                {"fo",Product.Language.Faroese},
-                {"fu",Product.Language.Finnish},
-                {"fr",Product.Language.French},
-                {"de",Product.Language.German},
-                {"el",Product.Language.Greek},
-                {"he",Product.Language.Hebrew},
-                {"is",Product.Language.Icelandic},
-                {"id",Product.Language.Indonesian},
-                {"it",Product.Language.Italian},
-                {"ko",Product.Language.Korean},
-                {"lv",Product.Language.Latvian},
-                {"lt",Product.Language.Lithuanian},
-                {"nn",Product.Language.Norwegian},
-                {"pl",Product.Language.Polish},
-                {"pt",Product.Language.Portuguese},
-                {"ro",Product.Language.Romanian},
-                {"ru",Product.Language.Russian},
-                {"sr",Product.Language.SerboCroatian},
-                {"sk",Product.Language.Slovak},
-                {"sl",Product.Language.Slovenian},
-                {"es",Product.Language.Spanish},
-                {"sv",Product.Language.Swedish},
-                {"th",Product.Language.Thai},
-                {"tr",Product.Language.Turkish},
-                {"uk",Product.Language.Ukrainian},
-                {"vi",Product.Language.Vietnamese},
-                {"hu",Product.Language.Hungarian}
-            };
-        }
-
         [HarmonyPatch(typeof(KagScript), "GetText")]
         [HarmonyPostfix]
         private static void KagScriptGetText(KagScript __instance, ref string __result)
