@@ -85,6 +85,10 @@ namespace COM3D2.i18nEx.Core
 
         internal class ScriptTranslationsConfig
         {
+            public ConfigWrapper<string> TranslationMark = Wrap(
+                                                                "ScriptTranslations", "TranslationMark",
+                                                                "DO NOT TOUCH: Record the last used Script Mark.", "e");
+
             public ConfigWrapper<double> ClipboardCaptureTime = Wrap(
                                                                      "ScriptTranslations", "ClipboardCaptureTime",
                                                                      "If `SendScriptToClipboard` is enabled, specifies the time to wait before sending all input to clipboard.",

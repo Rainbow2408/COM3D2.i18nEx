@@ -12,11 +12,10 @@ namespace COM3D2.i18nEx.Core.Hooks
         private static Harmony instance;
         private static string curScriptFileName;
         private static bool initialized;
-        private static string tlSeparator;
 
         private static string TlSeparator =>
-            tlSeparator ??= LocalizationManager.ScriptTranslationMark
-                                               .FirstOrDefault(kv => kv.Value == Product.subTitleScenarioLanguage).Key;
+            LocalizationManager.ScriptTranslationMark
+                               .FirstOrDefault(kv => kv.Value == Product.subTitleScenarioLanguage).Key;
 
         public static void Initialize()
         {

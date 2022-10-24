@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using COM3D2.i18nEx.Core.Util;
@@ -115,6 +116,12 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
         {
             if (Configuration.ScriptTranslations.ReloadTranslationsKey.Value.IsPressed)
                 ReloadActiveTranslations();
+            if(Scourt.Loc.LocalizationManager.ScriptTranslationMark[Configuration.ScriptTranslations.TranslationMark.Value] != Product.subTitleScenarioLanguage)
+            {
+                Configuration.ScriptTranslations.TranslationMark.Value = Scourt.Loc.LocalizationManager.ScriptTranslationMark
+                                                                                                       .FirstOrDefault(kv => kv.Value == Product.subTitleScenarioLanguage).Key;
+                ReloadActiveTranslations();
+            }
         }
 
         public override void LoadLanguage()
@@ -215,7 +222,7 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
             if (!translationFiles.ContainsKey(fileName))
             {
                 var tlPath = Path.Combine(Paths.TranslationsRoot, Configuration.General.ActiveLanguage.Value);
-                var textTlPath = Path.Combine(tlPath, "Script");
+                var textTlPath = Path.Combine(tlPath, "Script_" + Configuration.ScriptTranslations.TranslationMark.Value);
 
                 if (!Directory.Exists(textTlPath))
                     Directory.CreateDirectory(textTlPath);

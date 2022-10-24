@@ -29,7 +29,7 @@ namespace COM3D2.i18nEx.Core.Loaders
 
         public IEnumerable<string> GetScriptTranslationFileNames()
         {
-            var scriptPath = Path.Combine(langPath, "Script");
+            var scriptPath = Path.Combine(langPath, "Script_" + Configuration.ScriptTranslations.TranslationMark.Value);
             if (!Directory.Exists(scriptPath))
                 return null;
             return Directory.GetFiles(scriptPath, "*.txt", SearchOption.AllDirectories);
