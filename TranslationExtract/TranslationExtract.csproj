@@ -2,11 +2,12 @@
     <PropertyGroup>
         <AssemblyTitle>TranslationExtract</AssemblyTitle>
         <Product>TranslationExtract</Product>
+        <Version>1.5.2</Version>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="BepInEx.Core" Version="5.4.16"/>
-        <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile"/>
-        <PackageReference Include="COM3D2.GameLibs" Version="2.*-*" IncludeAssets="compile"/>
-        <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*"/>
+        <PackageReference Include="BepInEx.Core" Version="5.4.16" />
+        <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile" />
+        <PackageReference Include="COM3D2.GameLibs" Version="2.*-*" IncludeAssets="compile" />
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
     </ItemGroup>
 </Project>

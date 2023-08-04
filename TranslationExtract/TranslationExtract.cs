@@ -8,68 +8,31 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using BepInEx;
+using BepInEx.Logging;
+using HarmonyLib;
 using I2.Loc;
+using MaidStatus;
+using Schedule;
 using UnityEngine;
+using Yotogis;
 
 namespace TranslationExtract
 {
-    internal static class Extensions
-    {
-        private static string EscapeCSVItem(string str)
-        {
-            if (str.Contains("\n") || str.Contains("\"") || str.Contains(","))
-                return $"\"{str.Replace("\"", "\"\"")}\"";
-            return str;
-        }
-
-        private static IEnumerable<(T1, T2)> ZipWith<T1, T2>(this IEnumerable<T1> e1, IEnumerable<T2> e2)
-        {
-            if (e1 == null || e2 == null)
-                yield break;
-            using var enum1 = e1.GetEnumerator();
-            using var enum2 = e2.GetEnumerator();
-
-            while (enum1.MoveNext() && enum2.MoveNext())
-                yield return (enum1.Current, enum2.Current);
-        }
-
-        public static void WriteCSV<T>(this StreamWriter sw,
-                                       string neiFile,
-                                       string csvFile,
-                                       Func<CsvParser, int, T> selector,
-                                       Func<T, IEnumerable<string>> toString,
-                                       Func<T, IEnumerable<string>> toTranslation,
-                                       bool skipIfExists = false)
-        {
-            using var f = GameUty.FileOpen(neiFile);
-            using var scenarioNei = new CsvParser();
-            scenarioNei.Open(f);
-
-            for (var i = 1; i < scenarioNei.max_cell_y; i++)
-            {
-                if (!scenarioNei.IsCellToExistData(0, i))
-                    continue;
-
-                var item = selector(scenarioNei, i);
-                var prefixes = toString(item);
-                var translations = toTranslation(item);
-
-                foreach (var (prefix, tl) in prefixes.ZipWith(translations))
-                {
-                    if (skipIfExists && LocalizationManager.TryGetTranslation($"{csvFile}/{prefix}", out var _))
-                        continue;
-
-                    var csvName = EscapeCSVItem(tl);
-                    sw.WriteLine($"{toString(item)},Text,,{csvName},{csvName}");
-                }
-            }
-        }
-    }
-
     [BepInPlugin("horse.coder.com3d2.tlextract", "Translation Extractor", PluginInfo.PLUGIN_VERSION)]
     public class TranslationExtract : BaseUnityPlugin
     {
-        public const string TL_DIR = "COM3D2_Localisation";
+        internal static new ManualLogSource Logger;
+        public static readonly string TL_DIR = Path.Combine("BepinEx", PluginInfo.PLUGIN_NAME);
+
+        internal static readonly string[] readonly_Datas = new string[8]
+        {
+                string.Empty, "Text", "Vanilla", "Personal", "YotogiClass", "JobClass", "Title", "Feature"
+        };
+        internal static string[] Datas = new string[5]
+        {
+                readonly_Datas[0], readonly_Datas[1], readonly_Datas[0], readonly_Datas[0], readonly_Datas[0]
+        };
+
         private const int WIDTH = 200;
         private const int HEIGHT = 400;
         private const int MARGIN_X = 5;
@@ -81,7 +44,6 @@ namespace TranslationExtract
         private static readonly Encoding UTF8 = new UTF8Encoding(true);
 
         private static readonly Dictionary<string, string> NpcNames = new();
-
 
         private readonly HashSet<string> filesToSkip = new(StringComparer.InvariantCultureIgnoreCase);
 
@@ -96,6 +58,7 @@ namespace TranslationExtract
         private void Awake()
         {
             DontDestroyOnLoad(this);
+            Logger = base.Logger;
         }
 
         private void Update()
@@ -182,19 +145,19 @@ namespace TranslationExtract
 
         private void DumpUI()
         {
-            Debug.Log("Dumping UI localisation");
+            Logger.LogInfo("Dumping UI localisation");
 
             var langs = LocalizationManager.GetAllLanguages();
-            Debug.Log($"Currently {langs.Count} languages are known");
+            Logger.LogInfo($"Currently {langs.Count} languages are known");
             foreach (var language in langs)
-                Debug.Log($"{language}");
+                Logger.LogInfo($"{language}");
 
-            Debug.Log($"Currently selected language is {LocalizationManager.CurrentLanguage}");
-            Debug.Log($"There are {LocalizationManager.Sources.Count} language sources");
+            Logger.LogInfo($"Currently selected language is {LocalizationManager.CurrentLanguage}");
+            Logger.LogInfo($"There are {LocalizationManager.Sources.Count} language sources");
 
             foreach (var languageSource in LocalizationManager.Sources)
             {
-                Debug.Log(
+                Logger.LogInfo(
                           $"Dumping {languageSource.name} with languages: {string.Join(",", languageSource.mLanguages.Select(d => d.Name).ToArray())}. GSheets: {languageSource.HasGoogleSpreadsheet()}");
                 DumpI2Translations(languageSource);
             }
@@ -203,6 +166,9 @@ namespace TranslationExtract
         private KeyValuePair<string, string> SplitTranslation(string txt)
         {
             int pos;
+            // original text is before <> tag and translated text is after
+            // accept tags: [English,<e>], [TraditionalChinese,<tc>], [SimplifiedChinese,<sc>]
+            // more information can be found at Scourt.Loc.LocalizationManager.ScriptTranslationMark
             if ((pos = txt.IndexOf("<e>", StringComparison.InvariantCultureIgnoreCase)) > 0)
             {
                 translatedLines++;
@@ -429,7 +395,7 @@ namespace TranslationExtract
                     var match = textPattern.Match(trimmedLine);
                     if (!match.Success)
                     {
-                        Debug.Log($"[WARNING] Failed to extract line from \"{trimmedLine}\"");
+                        Logger.LogWarning($"[WARNING] Failed to extract line from \"{trimmedLine}\"");
                         continue;
                     }
 
@@ -445,16 +411,16 @@ namespace TranslationExtract
 
         private void DumpScripts()
         {
-            Debug.Log("Dumping game script translations...");
-            Debug.Log("Getting all script files...");
+            Logger.LogInfo("Dumping game script translations...");
+            Logger.LogInfo("Getting all script files...");
             var scripts = GameUty.FileSystem.GetFileListAtExtension(".ks");
-            Debug.Log($"Found {scripts.Length} scripts!");
+            Logger.LogInfo($"Found {scripts.Length} scripts!");
 
             foreach (var scriptFile in scripts)
             {
                 using var f = GameUty.FileOpen(scriptFile);
                 var script = NUty.SjisToUnicode(f.ReadAll());
-                Debug.Log(scriptFile);
+                Logger.LogDebug(scriptFile);
                 ExtractTranslations(scriptFile, script);
             }
 
@@ -468,37 +434,60 @@ namespace TranslationExtract
         private void DumpScenarioEvents(DumpOptions opts)
         {
             var i2Path = Path.Combine(TL_DIR, "UI");
-            var unitPath = Path.Combine(i2Path, "zzz_scenario_events");
-            Directory.CreateDirectory(unitPath);
+            var unitPath = Path.Combine(i2Path, "Dynamic");
+            using var swScenarioEvents = new CsvData();
+            HashSet<string> ConditionHash = new();
+            List<string> ConditionTexts = new();
 
-            Debug.Log("Getting scenario event data");
+            Logger.LogInfo("Getting scenario event data");
+            var scenario_data_list_ = GameMain.Instance.ScenarioSelectMgr.GetAllScenarioData();
 
-            var encoding = new UTF8Encoding(true);
-            using var sw = new StreamWriter(Path.Combine(unitPath, "SceneScenarioSelect.csv"), false, encoding);
-
-            sw.WriteLine("Key,Type,Desc,Japanese,English");
-            sw.WriteCSV("select_scenario_data.nei", "SceneScenarioSelect",
-                        (parser, i) => new
-                        {
-                            id = parser.GetCellAsInteger(0, i),
-                            name = parser.GetCellAsString(1, i),
-                            description = parser.GetCellAsString(2, i)
-                        },
-                        arg => new[] { $"{arg.id}/タイトル", $"{arg.id}/内容" },
-                        arg => new[] { arg.name, arg.description });
+            int i = 1, i_total = scenario_data_list_.Length;
+            foreach (var data in scenario_data_list_)
+            {
+                Logger.LogDebug($"[DumpScenarioEvents] Progress [{i}/{i_total}] ID{data.ID}");
+                Datas[0] = data.TitleTerm;
+                Datas[2] = readonly_Datas[0];
+                Datas[3] = data.Title;
+                Datas[4] = Datas[3];
+                swScenarioEvents.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                Datas[0] = data.EventContentTerm;
+                Datas[2] = readonly_Datas[0];
+                Datas[3] = data.EventContents;
+                Datas[4] = Datas[3];
+                swScenarioEvents.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                foreach (var text in data.ConditionText)
+                {
+                    if (ConditionHash.Contains(text))
+                        continue;
+                    ConditionTexts.Add(text);
+                    ConditionHash.Add(text);
+                }
+                i++;
+            }
+            foreach(var text in ConditionTexts)
+            {
+                //Term logic from ScenarioData.ConditionTextTerms
+                Datas[0] = "SceneScenarioSelect/条件文/" + text;
+                Datas[2] = readonly_Datas[0];
+                Datas[3] = text;
+                Datas[4] = Datas[3];
+                swScenarioEvents.Writer(unitPath, Datas, opts.skipTranslatedItems);
+            }
+            swScenarioEvents.WriteCSV();
         }
 
         private void DumpItemNames(DumpOptions opts)
         {
             var i2Path = Path.Combine(TL_DIR, "UI");
-            var unitPath = Path.Combine(i2Path, "zzz_item_names");
+            var unitPath = Path.Combine(i2Path, "ItemNames");
             Directory.CreateDirectory(unitPath);
 
             var encoding = new UTF8Encoding(true);
-            Debug.Log("Getting all .menu files (this might take a moment)...");
+            Logger.LogInfo("Getting all .menu files (this might take a moment)...");
             var menus = GameUty.FileSystem.GetFileListAtExtension(".menu");
 
-            Debug.Log($"Found {menus.Length} menus!");
+            Logger.LogInfo($"Found {menus.Length} menus!");
 
             var swDict = new Dictionary<string, StreamWriter>();
 
@@ -506,7 +495,7 @@ namespace TranslationExtract
             {
                 using var f = GameUty.FileOpen(menu);
                 using var br = new BinaryReader(new MemoryStream(f.ReadAll()));
-                Debug.Log(menu);
+                Logger.LogDebug(menu);
 
                 br.ReadString();
                 br.ReadInt32();
@@ -535,120 +524,192 @@ namespace TranslationExtract
         }
 
 
-        private void DumpPersonalityNames(DumpOptions opts)
+        private void DumpMaidStatus(DumpOptions opts)
         {
             var i2Path = Path.Combine(TL_DIR, "UI");
-            var unitPath = Path.Combine(i2Path, "zzz_personalities");
-            Directory.CreateDirectory(unitPath);
+            var unitPath = Path.Combine(i2Path, "Dynamic");
+            using var swMaidStatus = new CsvData();
 
-            Debug.Log("Getting personality names");
-
-            void WriteSimpleData(string file, string prefix, StreamWriter sw, int dataCol = 2, int idCol = 1)
+            Logger.LogInfo("Getting personality datas");
+            //maid_status_personal_*.nei
+            var personal_data_list_ = Personal.GetAllDatas(false);
+            int i = 1, i_total = personal_data_list_.Count;
+            foreach (var data in personal_data_list_)
             {
-                sw.WriteCSV(file, "MaidStatus", (parser, i) => new
-                            {
-                                uniqueName = parser.GetCellAsString(idCol, i),
-                                displayName = parser.GetCellAsString(dataCol, i)
-                            },
-                            arg => new[] { $"{prefix}/{arg.uniqueName}" },
-                            arg => new[] { arg.displayName },
-                            opts.skipTranslatedItems);
+                Logger.LogDebug($"[DumpMaidStatus] Progress [{i}/{i_total}] Personal ID{data.id}");
+                Datas[0] = data.termName;
+                Datas[2] = readonly_Datas[3];
+                Datas[3] = data.drawName;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                i++;
             }
-
-            var encoding = new UTF8Encoding(true);
-            using (var sw = new StreamWriter(Path.Combine(unitPath, "MaidStatus.csv"), false, encoding))
+            //maid_status_yotogiclass_*.nei
+            var yotogiclass_data_list_ = YotogiClass.GetAllDatas(false);
+            i = 1;
+            i_total = yotogiclass_data_list_.Count;
+            foreach (var data in yotogiclass_data_list_)
             {
-                sw.WriteLine("Key,Type,Desc,Japanese,English");
-
-                WriteSimpleData("maid_status_personal_list.nei", "性格タイプ", sw);
-
-                WriteSimpleData("maid_status_yotogiclass_list.nei", "夜伽クラス", sw);
-                WriteSimpleData("maid_status_yotogiclass_list.nei", "夜伽クラス", sw);
-
-                WriteSimpleData("maid_status_jobclass_list.nei", "ジョブクラス", sw);
-                WriteSimpleData("maid_status_jobclass_list.nei", "ジョブクラス/説明", sw, 4);
-
-                WriteSimpleData("maid_status_title_list.nei", "ステータス称号", sw, 0, 0);
-
-                WriteSimpleData("maid_status_feature_list.nei", "特徴タイプ", sw, 1);
+                Logger.LogDebug($"[DumpMaidStatus] Progress [{i}/{i_total}] YotogiClass ID{data.id}");
+                Datas[0] = data.termName;
+                Datas[2] = readonly_Datas[4];
+                Datas[3] = data.drawName;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                Datas[0] = data.termExplanatoryText;
+                Datas[2] = readonly_Datas[4];
+                Datas[3] = data.explanatoryText;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                i++;
             }
+            //maid_status_jobclass_*.nei
+            var jobclass_data_list_ = JobClass.GetAllDatas(false);
+            i = 1;
+            i_total = jobclass_data_list_.Count;
+            foreach (var data in jobclass_data_list_)
+            {
+                Logger.LogDebug($"[DumpMaidStatus] Progress [{i}/{i_total}] JobClass ID{data.id}");
+                Datas[0] = data.termName;
+                Datas[2] = readonly_Datas[5];
+                Datas[3] = data.drawName;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                Datas[0] = data.termExplanatoryText;
+                Datas[2] = readonly_Datas[5];
+                Datas[3] = data.explanatoryText;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                i++;
+            }
+            //maid_status_title_list.nei
+            Title.CreateData();
+            var title_data_list_ = Traverse.CreateWithType("MaidStatus.Title").Field("checkAchivementList").GetValue<List<KeyValuePair<string, ParametersPack>>>();
+            i = 1;
+            i_total = title_data_list_.Count;
+            foreach (var data in title_data_list_)
+            {
+                //Term logic from MaidStatus.Status.conditionTermText
+                Logger.LogDebug($"[DumpMaidStatus] Progress [{i}/{i_total}] Title");
+                Datas[0] = "MaidStatus/ステータス称号/" + data.Key;
+                Datas[2] = readonly_Datas[6];
+                Datas[3] = data.Key;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                i++;
+            }
+            //maid_status_feature_*.nei
+            var feature_data_list_ = Feature.GetAllDatas(false);
+            i = 1;
+            i_total = feature_data_list_.Count;
+            foreach (var data in feature_data_list_)
+            {
+                Logger.LogDebug($"[DumpMaidStatus] Progress [{i}/{i_total}] Feature ID{data.id}");
+                Datas[0] = data.termName;
+                Datas[2] = readonly_Datas[7];
+                Datas[3] = data.drawName;
+                Datas[4] = Datas[3];
+                swMaidStatus.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                i++;
+            }
+            swMaidStatus.WriteCSV();
         }
 
         private void DumpYotogiData(DumpOptions opts)
         {
             var i2Path = Path.Combine(TL_DIR, "UI");
-            var unitPath = Path.Combine(i2Path, "zzz_yotogi");
-            Directory.CreateDirectory(unitPath);
+            var unitPath = Path.Combine(i2Path, "Dynamic");
+            using var swName = new CsvData();
+            using var swCommand = new CsvData();
 
-            Debug.Log("Getting yotogi skills and commands");
+            Logger.LogInfo("Getting yotogi skills and commands");
+            var skill_data_id_list_ = Skill.skill_data_list;
 
-            var encoding = new UTF8Encoding(true);
-            using (var sw = new StreamWriter(Path.Combine(unitPath, "YotogiSkillName.csv"), false, encoding))
+            using AFileBase afileBase = GameUty.FileSystem.FileOpen("yotogi_skill_command_data.nei");
+            using CsvParser csvParser = new();
+            csvParser.Open(afileBase);
+            using AFileBase afileBase2 = GameUty.FileSystem.FileOpen("yotogi_skill_command_status.nei");
+            using CsvParser csvParser2 = new();
+            csvParser2.Open(afileBase2);
+
+            int num = 0, num2 = 0, num3 = 0, i = 1, i_total = skill_data_id_list_.Length;
+            Skill.Data.Command.Data.Basic data;
+            foreach (var sk0 in skill_data_id_list_)
             {
-                sw.WriteLine("Key,Type,Desc,Japanese,English");
-                sw.WriteCSV("yotogi_skill_list.nei", "YotogiSkillName",
-                            (parser, i) => new
-                            {
-                                skillName = parser.GetCellAsString(4, i)
-                            },
-                            arg => new[] { arg.skillName },
-                            arg => new[] { arg.skillName },
-                            opts.skipTranslatedItems);
-            }
-
-            var commandNames = new HashSet<string>();
-            using (var sw = new StreamWriter(Path.Combine(unitPath, "YotogiSkillCommand.csv"), false, encoding))
-            {
-                using var f = GameUty.FileOpen("yotogi_skill_command_data.nei");
-                using var scenarioNei = new CsvParser();
-                sw.WriteLine("Key,Type,Desc,Japanese,English");
-                scenarioNei.Open(f);
-
-                for (var i = 0; i < scenarioNei.max_cell_y; i++)
+                int j = 1, j_total = sk0.Values.Count;
+                foreach (var sk1 in sk0.Values)
                 {
-                    if (!scenarioNei.IsCellToExistData(0, i))
+                    Logger.LogDebug($"[DumpYotogiSkills] Progress [{i}/{i_total}][{j}/{j_total}] ID{sk1.id}");
+
+                    Datas[0] = sk1.termName;
+                    Datas[2] = readonly_Datas[0];
+                    Datas[3] = sk1.name;
+                    Datas[4] = Datas[3];
+                    swName.Writer(unitPath, Datas, opts.skipTranslatedItems);
+
+                    //Get data method logic from Skill.Data.Command(sk1, csvParser, csvParser2);
+                    num = sk1.command_basic_cell_x + 1;
+                    num2 = sk1.command_basic_cell_y + 1;
+                    num3 = 0;
+                    while (csvParser.IsCellToExistData(num + 1, num2 + num3))
+                        num3++;
+                    if (!(0 < num3))
                     {
-                        i += 2;
+                        Logger.LogError(csvParser.GetCellAsString(num - 1, num2 - 1) + "のコマンド設定は不正です");
                         continue;
                     }
-
-                    var commandName = scenarioNei.GetCellAsString(2, i);
-
-                    if (opts.skipTranslatedItems &&
-                        LocalizationManager.TryGetTranslation($"YotogiSkillCommand/{commandName}", out var _))
-                        continue;
-
-                    if (commandNames.Contains(commandName))
-                        continue;
-
-                    commandNames.Add(commandName);
-
-                    var csvName = EscapeCSVItem(commandName);
-                    sw.WriteLine($"{csvName},Text,,{csvName},{csvName}");
+                    for (int k = 0; k < num3; k++)
+                    {
+                        data = new Skill.Data.Command.Data.Basic(sk1, csvParser, sk1.command_basic_cell_x + 1, sk1.command_basic_cell_y + k + 1);
+                        Datas[0] = data.termName;
+                        Datas[2] = readonly_Datas[0];
+                        Datas[3] = data.name;
+                        Datas[4] = Datas[3];
+                        swCommand.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                        data = null;
+                    }
+                    GC.Collect();
+                    j++;
                 }
+                i++;
             }
+            swName.WriteCSV();
+            swCommand.WriteCSV();
         }
 
         private void DumpVIPEvents(DumpOptions opts)
         {
             var i2Path = Path.Combine(TL_DIR, "UI");
-            var unitPath = Path.Combine(i2Path, "zzz_vip_event");
-            Directory.CreateDirectory(unitPath);
+            var unitPath = Path.Combine(i2Path, "Dynamic");
+            using var swYotogi = new CsvData();
 
-            Debug.Log("Getting VIP event names");
+            Logger.LogInfo("Getting VIP event names");
+            var schedule_data_list_ = ScheduleCSVData.YotogiData;
 
-            var encoding = new UTF8Encoding(true);
-            using var sw = new StreamWriter(Path.Combine(unitPath, "SceneDaily.csv"), false, encoding);
-
-            sw.WriteLine("Key,Type,Desc,Japanese,English");
-            sw.WriteCSV("schedule_work_night.nei", "ScreneDaily", (parser, i) => new
-                        {
-                            vipName = parser.GetCellAsString(1, i),
-                            vipDescription = parser.GetCellAsString(7, i)
-                        },
-                        arg => new[] { $"スケジュール/項目/{arg.vipName}", $"スケジュール/説明/{arg.vipDescription}" },
-                        arg => new[] { arg.vipName, arg.vipDescription },
-                        opts.skipTranslatedItems);
+            int i = 1, i_total = schedule_data_list_.Count;
+            foreach (var sd0 in schedule_data_list_)
+            {
+                var sd1 = sd0.Value;
+                if (sd1.yotogiType == ScheduleCSVData.YotogiType.Vip)
+                {
+                    Logger.LogDebug($"[DumpVIPEvents] Progress [{i}/{i_total}] ScheduleCSVData.YotogiType.Vip ID{sd1.id}");
+                    //Term logic from FreeModeItemVip.titleTerm and textTerm;
+                    var type = sd1.yotogiType.ToString();
+                    Datas[0] = "SceneDaily/スケジュール/項目/" + sd1.name.Replace("×", "_");
+                    Datas[2] = readonly_Datas[0];
+                    Datas[3] = sd1.name;
+                    Datas[4] = Datas[3];
+                    swYotogi.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                    Datas[0] = "SceneDaily/スケジュール/説明/" + sd1.information.Replace("×", "_");
+                    Datas[2] = readonly_Datas[0];
+                    Datas[3] = sd1.information;
+                    Datas[4] = Datas[3];
+                    swYotogi.Writer(unitPath, Datas, opts.skipTranslatedItems);
+                }
+                else Logger.LogDebug($"[DumpVIPEvents] Skip [{i}/{i_total}] ScheduleCSVData.YotogiType.{sd1.yotogiType} ID{sd1.id}");
+                i++;
+            }
+            swYotogi.WriteCSV();
         }
 
         private string EscapeCSVItem(string str)
@@ -660,7 +721,7 @@ namespace TranslationExtract
 
         private void Dump(DumpOptions opts)
         {
-            Debug.Log("Dumping game localisation files! Please be patient!");
+            Logger.LogInfo("Dumping game localisation files! Please be patient!");
 
             if (opts.dumpUITranslations)
                 DumpUI();
@@ -675,7 +736,7 @@ namespace TranslationExtract
                 DumpScenarioEvents(opts);
 
             if (opts.dumpPersonalies)
-                DumpPersonalityNames(opts);
+                DumpMaidStatus(opts);
 
             if (opts.dumpYotogis)
                 DumpYotogiData(opts);
@@ -684,9 +745,9 @@ namespace TranslationExtract
                 DumpVIPEvents(opts);
 
             if (opts.dumpScripts)
-                Debug.Log($"Dumped {translatedLines} lines");
-            Debug.Log($"Done! Dumped translations are located in {TL_DIR}. You can now close the game!");
-            Debug.Log("IMPORTANT: Delete this plugin (TranslationExtract.dll) if you want to play the game normally!");
+                Logger.LogInfo($"Dumped {translatedLines} lines");
+            Logger.LogInfo($"Done! Dumped translations are located in {TL_DIR}. You can now close the game!");
+            Logger.LogInfo("IMPORTANT: Delete this plugin (TranslationExtract.dll) if you want to play the game normally!");
         }
 
         [Serializable]
