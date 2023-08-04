@@ -100,7 +100,7 @@ After you press the dump button, observe the console output to see progress. It 
 
 6. When it's done, close the game. You should now see folder named `COM3D2_Localisation` appearing in your game's directory.  
 
-7. From `COM3D2_Localisation`, take `Script` and `UI` folders and copy them over into `i18nEx/English` of your Japanese game. 
+7. From `BepinEx/TranslationExtract`, take `Script` and `UI` folders and copy them over into `i18nEx/English` of your Japanese game. 
 
 8. **Remove `TranslationExtract.dll from your English game when you're done extracting all the text!**
 
