@@ -11,7 +11,7 @@ namespace COM3D2.i18nEx.Core
         {
             Core.Logger.LogInfo("Initializing paths...");
 
-            TranslationsRoot = Path.Combine(gameRoot, "i18nEx");
+            TranslationsRoot = Path.Combine(Path.Combine(gameRoot, "BepInEx"), "i18nEx");
             ConfigurationFilePath = Path.Combine(TranslationsRoot, "configuration.ini");
 
             if (!Directory.Exists(TranslationsRoot))

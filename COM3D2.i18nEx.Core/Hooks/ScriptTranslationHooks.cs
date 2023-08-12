@@ -158,7 +158,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                     return true;
                 }
 
-                if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToEnglish)
+                if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToLocal)
                 {
                     text = $"{orig}<{TlSeparator}>{orig}";
                     return true;
