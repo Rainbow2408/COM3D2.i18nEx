@@ -99,8 +99,8 @@ namespace COM3D2.i18nEx.Core
 
             if (!Directory.Exists(tlLang))
             {
-                Logger.LogWarning($"No translations for language \"{langName}\" was found!");
-                return;
+                Logger.LogWarning($"No translations for language \"{langName}\" was found! Create Directory.");
+                Directory.CreateDirectory(tlLang);
             }
 
             TranslationLoader?.UnloadCurrentTranslation();

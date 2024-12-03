@@ -29,15 +29,15 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
         {
             var units = Core.TranslationLoader.GetUITranslationFileNames();
 
+            var source = go.GetComponent<LanguageSource>() ?? go.AddComponent<LanguageSource>();
+            source.name = "i18nEx";
+            source.ClearAllData();
+
             if (units == null)
             {
                 Core.Logger.LogInfo("No UI translations found! Skipping...");
                 return;
             }
-
-            var source = go.GetComponent<LanguageSource>() ?? go.AddComponent<LanguageSource>();
-            source.name = "i18nEx";
-            source.ClearAllData();
 
             foreach (var kv in units.OrderByDescending(k => k.Key, StringComparer.InvariantCultureIgnoreCase))
             {
