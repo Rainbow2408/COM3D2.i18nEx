@@ -108,7 +108,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         {
             var parent = __instance.transform.parent;
             if (Configuration.I2Translation.OverrideSubtitleOpacity.Value &&
-                parent && parent.name == "YotogiPlayPanel")
+                parent                                                    && parent.name == "YotogiPlayPanel")
             {
                 if (Math.Abs(value - __instance.messageBgAlpha) < 0.001)
                     return false;
