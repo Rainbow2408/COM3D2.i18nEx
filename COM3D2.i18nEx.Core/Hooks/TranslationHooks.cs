@@ -50,7 +50,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         {
             if (CheckConfigLanguageName())
             {
-                SetCurrentLanguage("i18n/Lang/" + Configuration.I2Translation.CurrentLanguage.Value);
+                SetCurrentLanguage("i18n/Lang/" + Configuration.General.ActiveLanguage.Value);
                 __runOriginal = false;
             }
         }
@@ -108,7 +108,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         {
             var parent = __instance.transform.parent;
             if (Configuration.I2Translation.OverrideSubtitleOpacity.Value &&
-                parent                                                    && parent.name == "YotogiPlayPanel")
+                parent && parent.name == "YotogiPlayPanel")
             {
                 if (Math.Abs(value - __instance.messageBgAlpha) < 0.001)
                     return false;
@@ -216,42 +216,26 @@ namespace COM3D2.i18nEx.Core.Hooks
 
         private static bool CheckConfigLanguageName()
         {
-            if (string.IsNullOrEmpty(Configuration.I2Translation.CurrentLanguage.Value))
+            if (string.IsNullOrEmpty(Configuration.General.ActiveLanguage.Value))
                 return false;
 
-            string Language = ReFormatLanguageName(Configuration.I2Translation.CurrentLanguage.Value);
+            string Language = Utility.ReFormatLanguageName(Configuration.General.ActiveLanguage.Value, out _, log: true);
             if (string.IsNullOrEmpty(Language))
             {
-                Core.Logger.LogWarning($"Invalid language name: {Configuration.I2Translation.CurrentLanguage.Value}");
-                Configuration.I2Translation.CurrentLanguage.Value = string.Empty;
+                Core.Logger.LogWarning($"Invalid language name: {Configuration.General.ActiveLanguage.Value}");
+                Configuration.General.ActiveLanguage.Value = string.Empty;
                 return false;
             }
 
-            Configuration.I2Translation.CurrentLanguage.Value = Language;
+            Configuration.General.ActiveLanguage.Value = Language;
             return true;
-        }
-
-        private static string ReFormatLanguageName(string LangName, bool useParentheses = true)
-        {
-            if (string.IsNullOrEmpty(LangName))
-                return null;
-
-            string code = GoogleLanguages.GetLanguageCode(LangName, false);
-            if (string.IsNullOrEmpty(code))
-            {
-                foreach (Product.Language enumValue in Enum.GetValues(typeof(Product.Language)))
-                    if (LangName == Product.EnumConvert.GetString(enumValue)) return ReFormatLanguageName(Product.EnumConvert.ToI2LocalizeLanguageName(enumValue), useParentheses);
-                // Core.Logger.LogWarning($"Could not find language code for {LangName}");
-                // return null;
-            }
-            return GoogleLanguages.GetLanguageName(code, useParentheses, false);
         }
 
         private static void LoadPopupSelect()
         {
             if (pop == null) return;
 
-            if (CheckConfigLanguageName()) pop.value = "i18n/Lang/" + Configuration.I2Translation.CurrentLanguage.Value;
+            if (CheckConfigLanguageName()) pop.value = "i18n/Lang/" + Configuration.General.ActiveLanguage.Value;
             else
             {
                 if (pop.value.StartsWith("[KISS] ")) if (OfficialLanguageDict != null && OfficialLanguageDict.TryGetValue(pop.value, out string Term)) pop.value = Term;
@@ -259,6 +243,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                 UILabel_Label.SetCurrentSelection();
             }
         }
+
         private static void ReloadPopupList()
         {
             if (pop == null || UIsystemLanguage == null)
@@ -271,19 +256,8 @@ namespace COM3D2.i18nEx.Core.Hooks
                 pop.Clear();
                 foreach (string item in Directory.GetDirectories("BepInEx\\i18nEx", "*", SearchOption.TopDirectoryOnly))
                 {
-                    string dirName = Path.GetFileName(item);
-                    string lang = ReFormatLanguageName(dirName);
-                    if (string.IsNullOrEmpty(lang))
-                    {
-                        Core.Logger.LogWarning($"Skipping loading \"{dirName}\" folder. Language not matched!");
-                        continue;
-                    }
-                    if (dirName != lang)
-                    {
-                        Core.Logger.LogWarning($"Skipping loading \"{dirName}\" folder. The language has been matched, but doesn't comply with the naming rules, please rename it to \"{lang}\"");
-                        continue;
-                    }
-                    pop.AddItem("i18n/Lang/" + lang);
+                    if (Utility.CheckLanguageName(Path.GetFileName(item), out string language))
+                        pop.AddItem("i18n/Lang/" + language);
                 }
                 foreach (string item in UIsystemLanguage.items)
                 {
@@ -314,16 +288,16 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (langTerm.StartsWith("[KISS] "))
             {
                 if (OfficialLanguageDict != null && OfficialLanguageDict.TryGetValue(langTerm, out string Term))
-                    LocalizationManager.CurrentLanguage = ReFormatLanguageName(Term.Substring("System/言語/".Length));
+                    LocalizationManager.CurrentLanguage = Utility.ReFormatLanguageName(Term.Substring("System/言語/".Length), out _, log: true);
                 else
                     LocalizationManager.CurrentLanguage = Product.EnumConvert.ToI2LocalizeLanguageName(Product.Language.Japanese);
-                Configuration.I2Translation.CurrentLanguage.Value = string.Empty;
+                Configuration.General.ActiveLanguage.Value = string.Empty;
             }
             else if (langTerm.StartsWith(PostTerm))
             {
-                string language = ReFormatLanguageName(langTerm.Substring(PostTerm.Length));
+                string language = Utility.ReFormatLanguageName(langTerm.Substring(PostTerm.Length), out _, log: true);
                 LocalizationManager.CurrentLanguage = language;
-                Configuration.I2Translation.CurrentLanguage.Value = language;
+                Configuration.General.ActiveLanguage.Value = language;
             }
 
             // Reload all languages

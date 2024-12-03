@@ -4,11 +4,14 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using Object = UnityEngine.Object;
+using I2.Loc;
+using System.Collections.Generic;
 
 namespace COM3D2.i18nEx.Core.Util
 {
     public static class Utility
     {
+        private static HashSet<string> outputtedLogs;
         public static bool IsNullOrWhiteSpace(this string str)
         {
             return str == null || str.All(char.IsWhiteSpace);
@@ -80,6 +83,59 @@ namespace COM3D2.i18nEx.Core.Util
             RenderTexture.active = previous;
             RenderTexture.ReleaseTemporary(render);
             return result;
+        }
+
+        public static bool CheckLanguageName(string langName, out string f_lang)
+        {
+            f_lang = ReFormatLanguageName(langName, out string message);
+            outputtedLogs ??= new();
+            if (string.IsNullOrEmpty(f_lang))
+            {
+                if (string.IsNullOrEmpty(langName))
+                    Core.Logger.LogInfo("Skip reading translation. Use built-in language instead.");
+                else
+                {
+                    var log = $"Skipping loading \"{langName}\" folder. {message}";
+                    if (!outputtedLogs.Contains(log)) Core.Logger.LogWarning(log);
+                    outputtedLogs.Add(log);
+                }
+                return false;
+            }
+            else if (langName != f_lang)
+            {
+                var log = $"Skipping loading \"{langName}\" folder. The language has been matched, but doesn't comply with the naming rules, please rename it to \"{f_lang}\"";
+                if (!outputtedLogs.Contains(log)) Core.Logger.LogWarning(log);
+                outputtedLogs.Add(log);
+                return false;
+            }
+            return true;
+        }
+
+        public static string ReFormatLanguageName(string languageName, out string message, bool useParentheses = true, bool log = false)
+        {
+            message = "";
+            var value = ReFormatLanguageName2(languageName, ref message, useParentheses);
+            if (log && !string.IsNullOrEmpty(message)) Core.Logger.LogWarning(message);
+            return value;
+        }
+
+        private static string ReFormatLanguageName2(string languageName, ref string message, bool useParentheses = true)
+        {
+            if (string.IsNullOrEmpty(languageName))
+            {
+                message = "Language name is empty or null!";
+                return null;
+            }
+
+            string code = GoogleLanguages.GetLanguageCode(languageName, false);
+            if (string.IsNullOrEmpty(code))
+            {
+                foreach (Product.Language enumValue in Enum.GetValues(typeof(Product.Language)))
+                    if (languageName == Product.EnumConvert.GetString(enumValue)) return ReFormatLanguageName2(Product.EnumConvert.ToI2LocalizeLanguageName(enumValue), ref message, useParentheses);
+                message = $"Language \"{languageName}\" does not match the language code!";
+                return null;
+            }
+            return GoogleLanguages.GetLanguageName(code, useParentheses, false);
         }
     }
 }

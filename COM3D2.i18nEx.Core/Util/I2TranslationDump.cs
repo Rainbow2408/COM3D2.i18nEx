@@ -9,6 +9,7 @@ namespace COM3D2.i18nEx.Core.Util
 {
     public static class I2TranslationDump
     {
+        static Harmony instance;
         private static readonly HashSet<string> DumpedTerms = new();
         private static string extractPath;
         private static readonly Encoding Utf8 = new UTF8Encoding(true);
@@ -21,7 +22,7 @@ namespace COM3D2.i18nEx.Core.Util
                 return;
 
             if (!initialized)
-                Harmony.CreateAndPatchAll(typeof(I2TranslationDump));
+                instance = Harmony.CreateAndPatchAll(typeof(I2TranslationDump));
 
             initialized = true;
             DumpedTerms.Clear();
@@ -32,6 +33,14 @@ namespace COM3D2.i18nEx.Core.Util
 
             Core.Logger.LogInfo($"[I2Loc] creating UI dumps to {extractPath}");
             Directory.CreateDirectory(extractPath);
+        }
+
+        public static void Unload()
+        {
+            if (!initialized) return;
+            instance.UnpatchSelf();
+            instance = null;
+            initialized = false;
         }
 
         private static bool SplitTerm(string term, out string mainCategory, out string rest)

@@ -96,6 +96,16 @@ namespace COM3D2.i18nEx.Core
         private void LoadLanguage(string langName)
         {
             var tlLang = Path.Combine(Paths.TranslationsRoot, langName);
+            if (!Utility.CheckLanguageName(langName, out _))
+            {
+                Logger.LogWarning($"Unload translations.");
+                TranslationLoader ??= new BasicTranslationLoader();
+                TranslationLoader?.UnloadCurrentTranslation();
+                foreach (var mgr in managers)
+                    mgr.LoadLanguage();
+                I2TranslationDump.Unload();
+                return;
+            }
 
             if (!Directory.Exists(tlLang))
             {

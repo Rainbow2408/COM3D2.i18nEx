@@ -159,10 +159,6 @@ namespace COM3D2.i18nEx.Core
         {
             public ConfigWrapper<bool> EngUIStyle = Wrap("I2Translation", "EngUIStyle",
                                                          "If enabled, the user interface will switch to the English style; if not, it will remain in the Japanese version.", false);
-            
-            public ConfigWrapper<string> CurrentLanguage = Wrap("I2Translation", "CurrentLanguage",
-                                                                "If specified, it will set the current UI language.\nIf the folder does not exist, the value will be reset to empty.",
-                                                                "");
 
             public ConfigWrapper<string> CustomUIFont = Wrap("I2Translation", "CustomUIFont",
                                                              "If specified, replaces the UI font with this one.\nIMPORTANT: The font **must** be installed on your machine and it **must** be a TrueType font.",
