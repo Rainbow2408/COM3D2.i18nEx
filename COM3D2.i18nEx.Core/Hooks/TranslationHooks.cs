@@ -148,8 +148,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         [HarmonyPostfix]
         private static void ConfigManagerPostLoad()
         {
-            LoadPopupSelect();
-            ReloadPopupList();
+            ReloadPopupList(true);
         }
 
         [HarmonyPatch(typeof(ConfigManager), nameof(ConfigManager.Init))]
@@ -188,9 +187,16 @@ namespace COM3D2.i18nEx.Core.Hooks
             EventDelegate.Add(pop.onChange, new EventDelegate.Callback(UILabel_Label.SetCurrentSelection));
             EventDelegate.Add(pop.onChange, delegate ()
             {
-                SetCurrentLanguage(Traverse.Create(configManager_).Method("GetCurrentPopupListValue").GetValue<string>());
-                LoadPopupSelect();
-                ReloadPopupList();
+                if (pop.isActiveAndEnabled && !pop.isOpen)
+                {
+                    ReloadPopupList(true, true); // After init, load the selected value.
+                    SetCurrentLanguage(Traverse.Create(configManager_).Method("GetCurrentPopupListValue").GetValue<string>());
+                }
+                else
+                {
+                    SetCurrentLanguage(Traverse.Create(configManager_).Method("GetCurrentPopupListValue").GetValue<string>());
+                    ReloadPopupList();
+                }
             });
 
             UIsystemLanguage.enabled = false;
@@ -219,32 +225,19 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (string.IsNullOrEmpty(Configuration.General.ActiveLanguage.Value))
                 return false;
 
-            string Language = Utility.ReFormatLanguageName(Configuration.General.ActiveLanguage.Value, out _, log: true);
-            if (string.IsNullOrEmpty(Language))
+            string language = Utility.ReFormatLanguageName(Configuration.General.ActiveLanguage.Value, out _, log: true);
+            if (string.IsNullOrEmpty(language))
             {
                 Core.Logger.LogWarning($"Invalid language name: {Configuration.General.ActiveLanguage.Value}");
                 Configuration.General.ActiveLanguage.Value = string.Empty;
                 return false;
             }
 
-            Configuration.General.ActiveLanguage.Value = Language;
+            Configuration.General.ActiveLanguage.Value = language;
             return true;
         }
 
-        private static void LoadPopupSelect()
-        {
-            if (pop == null) return;
-
-            if (CheckConfigLanguageName()) pop.value = "i18n/Lang/" + Configuration.General.ActiveLanguage.Value;
-            else
-            {
-                if (pop.value.StartsWith("[KISS] ")) if (OfficialLanguageDict != null && OfficialLanguageDict.TryGetValue(pop.value, out string Term)) pop.value = Term;
-                pop.value = OfficialLanguageConvert(pop.value);
-                UILabel_Label.SetCurrentSelection();
-            }
-        }
-
-        private static void ReloadPopupList()
+        private static void ReloadPopupList(bool LoadSelectOnly = false, bool ForceLoadI2Name = false)
         {
             if (pop == null || UIsystemLanguage == null)
             {
@@ -253,16 +246,27 @@ namespace COM3D2.i18nEx.Core.Hooks
             }
             try
             {
+                var val = string.Empty;
+                if (CheckConfigLanguageName()) val = "i18n/Lang/" + Configuration.General.ActiveLanguage.Value;
+                else
+                {
+                    if (pop.value.StartsWith("[KISS] ")) { if (OfficialLanguageDict != null && OfficialLanguageDict.TryGetValue(pop.value, out string Term)) val = OfficialLanguageConvert(Term); }
+                    else if (pop.value.IsNullOrWhiteSpace() || ForceLoadI2Name) val = OfficialLanguageConvert(UIsystemLanguage.value);
+                }
+                if ((val != string.Empty) || (val != pop.value)) pop.value = val;
+                UILabel_Label.SetCurrentSelection(); //Call localize.
+                if (LoadSelectOnly) return;
+
                 pop.Clear();
                 foreach (string item in Directory.GetDirectories("BepInEx\\i18nEx", "*", SearchOption.TopDirectoryOnly))
                 {
                     if (Utility.CheckLanguageName(Path.GetFileName(item), out string language))
-                        pop.AddItem("i18n/Lang/" + language);
+                        if (!pop.items.Contains(language)) pop.AddItem("i18n/Lang/" + language);
                 }
                 foreach (string item in UIsystemLanguage.items)
                 {
-                    string lang = OfficialLanguageConvert(item);
-                    if (!pop.items.Contains(lang)) pop.AddItem(lang);
+                    string language = OfficialLanguageConvert(item);
+                    if (!pop.items.Contains(language)) pop.AddItem(language);
                 }
             }
             catch (UnauthorizedAccessException ex)
