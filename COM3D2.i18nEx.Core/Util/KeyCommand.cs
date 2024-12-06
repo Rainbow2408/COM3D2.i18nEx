@@ -18,14 +18,36 @@ namespace COM3D2.i18nEx.Core.Util
         {
             KeyCodes = keyCodes;
             KeyStates = new bool[KeyCodes.Length];
+            KeyUpStates = new bool[KeyCodes.Length];
 
             KeyCommandHandler.Register(this);
         }
 
         private KeyCode[] KeyCodes { get; }
         private bool[] KeyStates { get; }
+        private bool[] KeyUpStates { get; }
+        private bool Pressed { get; set; }
 
-        public bool IsPressed => KeyStates.All(k => k);
+        public bool IsPressed
+        {
+            get
+            {
+                if (KeyStates.All(k => k))
+                {
+                    if (!Pressed)
+                    {
+                        Pressed = true;
+                        return true;
+                    }
+                    else if (KeyUpStates.All(u => u))
+                    {
+                        Pressed = false;
+                        for (var i = 0; i < KeyCodes.Length; i++) KeyUpStates[i] = false;
+                    }
+                }
+                return false;
+            }
+        }
 
         public void Dispose()
         {
@@ -39,6 +61,7 @@ namespace COM3D2.i18nEx.Core.Util
             {
                 var key = KeyCodes[i];
                 KeyStates[i] = Input.GetKey(key);
+                if (Input.GetKeyUp(key)) KeyUpStates[i] = true;
             }
         }
 
