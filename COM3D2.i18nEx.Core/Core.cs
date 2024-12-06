@@ -91,6 +91,7 @@ namespace COM3D2.i18nEx.Core
 
             LoadLanguage(Configuration.General.ActiveLanguage.Value);
             Configuration.General.ActiveLanguage.ValueChanged += LoadLanguage;
+            Configuration.I2Translation.DumpTexts.ValueChanged += I2TranslationDump.Feature;
         }
 
         private void LoadLanguage(string langName)
@@ -103,6 +104,7 @@ namespace COM3D2.i18nEx.Core
                 foreach (var mgr in managers)
                     mgr.LoadLanguage();
                 I2TranslationDump.Unload();
+                CurrentSelectedLanguage = string.Empty;
                 return;
             }
 

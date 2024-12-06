@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using COM3D2.i18nEx.Core.TranslationManagers;
 using COM3D2.i18nEx.Core.Util;
 using ExIni;
@@ -37,9 +38,28 @@ namespace COM3D2.i18nEx.Core
 
         public static void Reload()
         {
-            configFile.Merge(IniFile.FromFile(Paths.ConfigurationFilePath));
+            Merge(IniFile.FromFile(Paths.ConfigurationFilePath));
             foreach (var reloadableWrapper in reloadableWrappers)
                 reloadableWrapper.Reload();
+        }
+
+        private static void Merge(IniFile ini)
+        {
+            if (!(ini.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
+                configFile.Comments.Comments = ini.Comments.Comments.ToList();
+            foreach (IniSection section in ini.Sections)
+            {
+                IniSection iniSection = configFile[section.Section];
+                if (!(section.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
+                    iniSection.Comments.Comments = section.Comments.Comments.ToList();
+                foreach (IniKey key in section.Keys)
+                {
+                    IniKey iniKey = iniSection[key.Key];
+                    if (!(key.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
+                        iniKey.Comments.Comments = key.Comments.Comments.ToList();
+                    iniKey.Value = key.Value;
+                }
+            }
         }
 
         private static ConfigWrapper<T> Wrap<T>(string section,

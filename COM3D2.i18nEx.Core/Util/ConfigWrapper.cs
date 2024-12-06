@@ -35,7 +35,9 @@ namespace COM3D2.i18nEx.Core.Util
             this.defaultValue = defaultValue;
 
             iniKey = file[section][key];
-            iniKey.Comments.Comments = description?.Split('\n').ToList();
+            if (iniKey.Comments.Comments == null || !iniKey.Comments.Comments.Any() || 
+                iniKey.Comments.Comments.All(c => c.IsNullOrWhiteSpace()))
+                iniKey.Comments.Comments = description?.Split('\n').ToList();
 
             var cvt = TypeDescriptor.GetConverter(typeof(T));
 

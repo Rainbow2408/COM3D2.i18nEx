@@ -18,7 +18,7 @@ namespace COM3D2.i18nEx.Core.Util
 
         public static void Initialize()
         {
-            if (!Configuration.I2Translation.DumpTexts.Value)
+            if (!Configuration.I2Translation.DumpTexts.Value || string.IsNullOrEmpty(Core.CurrentSelectedLanguage))
                 return;
 
             if (!initialized)
@@ -33,6 +33,12 @@ namespace COM3D2.i18nEx.Core.Util
 
             Core.Logger.LogInfo($"[I2Loc] creating UI dumps to {extractPath}");
             Directory.CreateDirectory(extractPath);
+        }
+
+        internal static void Feature(bool value)
+        {
+            if (value) Initialize();
+            else Unload();
         }
 
         public static void Unload()
