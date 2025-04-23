@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using COM3D2.i18nEx.Core.Scripts;
@@ -18,7 +19,8 @@ namespace COM3D2.i18nEx.Core.Hooks
         private static UIPopupList UIsystemLanguage = null;
         private static UILabel UILabel_Label = null;
         private static UIPopupScrollList pop = null;
-        private static Dictionary<string, string> OfficialLanguageDict = null;
+        private static LanguageSource I2Source = null;
+        private static Dictionary<string, string> LanguageDict = null;
 
         public static void Initialize()
         {
@@ -129,10 +131,25 @@ namespace COM3D2.i18nEx.Core.Hooks
                                              GameObject localParametersRoot,
                                              string overrideLanguage)
         {
-            if (overrideLanguage != "Japanese" &&
-                (__result.IsNullOrWhiteSpace() || __result.IndexOf('/') >= 0 && Term.Contains(__result)))
-                __result = LocalizationManager.GetTranslation(Term, FixForRTL, maxLineLengthForRTL, ignoreRTLnumbers,
-                                                              applyParameters, localParametersRoot, "Japanese");
+            if (__result.IsNullOrWhiteSpace() || __result.IndexOf('/') >= 0 && Term.Contains(__result))
+            {
+                if (overrideLanguage != "Japanese")
+                    __result = LocalizationManager.GetTranslation(Term, FixForRTL, maxLineLengthForRTL, ignoreRTLnumbers,
+                                                                  applyParameters, localParametersRoot, "Japanese");
+                else if (overrideLanguage == "Japanese")
+                {
+                    I2Source ??= LocalizationManager.Sources
+                                .Skip(1)
+                                .FirstOrDefault(source => source.name == "I2Languages");
+                    if (I2Source != null && I2Source.TryGetTranslation(Term, out __result, overrideLanguage))
+                    {
+                        if (applyParameters)
+                            LocalizationManager.ApplyLocalizationParams(ref __result, localParametersRoot);
+                        if (LocalizationManager.IsRight2Left && FixForRTL)
+                            __result = LocalizationManager.ApplyRTLfix(__result, maxLineLengthForRTL, ignoreRTLnumbers);
+                    }
+                }
+            }
             else if (Configuration.I2Translation.VerboseLogging.Value)
                 Core.Logger.LogInfo($"[I2Loc] Translating term \"{Term}\" => \"{__result}\"");
         }
@@ -142,6 +159,30 @@ namespace COM3D2.i18nEx.Core.Hooks
         private static bool OnConfigMgrUpdate()
         {
             return false;
+        }
+
+        [HarmonyPatch(typeof(ConfigMgr), nameof(ConfigMgr.OpenConfigPanel))]
+        [HarmonyPostfix]
+        private static void OpenConfigPanelPostLoad()
+        {
+            DisablePopupListLocalize();
+        }
+
+        private static void DisablePopupListLocalize()
+        {
+            if (UILabel_Label == null)
+                return;
+
+            var locs = UILabel_Label.GetComponent<NGUILabelLocalizeSupport>();
+            var loc = UILabel_Label.GetComponent<Localize>();
+
+            // Process if either component exists
+            if (locs != null)
+                UnityEngine.Object.Destroy(locs);
+            if (loc != null)
+                UnityEngine.Object.Destroy(loc);
+            if (pop != null && pop.onChange != null)
+                EventDelegate.Remove(pop.onChange, UILabel_Label.SetCurrentSelection);
         }
 
         [HarmonyPatch(typeof(ConfigManager), nameof(ConfigManager.LoadConfig))]
@@ -182,59 +223,106 @@ namespace COM3D2.i18nEx.Core.Hooks
             pop.backgroundSprite = UIsystemLanguage.backgroundSprite;
             pop.highlightSprite = UIsystemLanguage.highlightSprite;
             pop.position = UIsystemLanguage.position;
+
             ReloadPopupList();
 
-            EventDelegate.Add(pop.onChange, new EventDelegate.Callback(UILabel_Label.SetCurrentSelection));
             EventDelegate.Add(pop.onChange, delegate ()
             {
-                if (pop.isActiveAndEnabled && !pop.isOpen)
+                // If user selected a new value, update language
+                if (pop.isActiveAndEnabled && pop.isOpen)
                 {
-                    ReloadPopupList(true, true); // After init, load the selected value.
-                    SetCurrentLanguage(Traverse.Create(configManager_).Method("GetCurrentPopupListValue").GetValue<string>());
-                }
-                else
-                {
-                    SetCurrentLanguage(Traverse.Create(configManager_).Method("GetCurrentPopupListValue").GetValue<string>());
+                    // Get the selected language
+                    string language = Traverse.Create(configManager_).Method("GetCurrentPopupListValue").GetValue<string>();
+
+                    // Remove Prefix
+                    language = NoLocalize.RemoveNoLocalizePrefix(language);
+
+                    // Set the selected language
+                    SetCurrentLanguage(language);
+
+                    // Reload popup list
                     ReloadPopupList();
                 }
+                else ReloadPopupList(true);
             });
 
             UIsystemLanguage.enabled = false;
         }
 
-        private static string OfficialLanguageConvert(string Term)
+        private static string LanguageConvert(string Term, bool Official = false)
         {
+            // Check input
             if (string.IsNullOrEmpty(Term) && !(Term == "-"))
                 return Term;
 
-            string translatedTerm = LocalizationManager.GetTranslation(Term, false, 0, true, false, null, null);
+            // Ensure dictionary is initialized
+            LanguageDict ??= new();
 
-            if (!string.IsNullOrEmpty(translatedTerm))
-            {
-                string finalTranslation = "[KISS] " + translatedTerm;
-                OfficialLanguageDict ??= new();
-                OfficialLanguageDict[finalTranslation] = Term;
-                return finalTranslation;
-            }
+            // Get translation
+            string translatedTerm = LocalizationManager.GetTranslation(Term, false);
+            bool hasTranslation = !string.IsNullOrEmpty(translatedTerm);
 
-            return Term;
+            // If it's an official language, add marker
+            if (Official && hasTranslation)
+                translatedTerm = "[KISS] " + translatedTerm;
+
+            // Store mapping of original term and translation
+            string resultTerm = hasTranslation ? translatedTerm : Term;
+            LanguageDict[resultTerm] = Term;
+
+            return resultTerm;
         }
 
         private static bool CheckConfigLanguageName()
         {
+            // Check if there is a configured language
             if (string.IsNullOrEmpty(Configuration.General.ActiveLanguage.Value))
                 return false;
 
-            string language = Utility.ReFormatLanguageName(Configuration.General.ActiveLanguage.Value, out _, log: true);
+            // Format language name
+            string language = Utility.ReFormatLanguageName(Configuration.General.ActiveLanguage.Value, out string message, log: true);
             if (string.IsNullOrEmpty(language))
             {
-                Core.Logger.LogWarning($"Invalid language name: {Configuration.General.ActiveLanguage.Value}");
+                Core.Logger.LogWarning($"Invalid language name: {Configuration.General.ActiveLanguage.Value}.{message}");
                 Configuration.General.ActiveLanguage.Value = string.Empty;
                 return false;
             }
-
-            Configuration.General.ActiveLanguage.Value = language;
+            // If the formatted language is different from the configuration value, update configuration
+            if (language != Configuration.General.ActiveLanguage.Value)
+                Configuration.General.ActiveLanguage.Value = language;
+            
             return true;
+        }
+
+        // Helper method: Get all available languages
+        private static IEnumerable<string> GetAvailableLanguages()
+        {
+            // Check if directory exists
+            string i18nExPath = Path.Combine("BepInEx", "i18nEx");
+            if (!Directory.Exists(i18nExPath))
+            {
+                Directory.CreateDirectory(i18nExPath);
+
+                // Return all official languages
+                return UIsystemLanguage.items.Select(item => LanguageConvert(item, true));
+            }
+
+            // Get all custom languages
+            var customLanguages = Directory.GetDirectories(i18nExPath, "*", SearchOption.TopDirectoryOnly)
+                .Select(item =>
+                {
+                    string langName = Path.GetFileName(item);
+                    return Utility.CheckLanguageName(langName, out string f_lang) ?
+                           LanguageConvert("i18n/Lang/" + f_lang) :
+                           null;
+                })
+                .Where(language => language != null);
+
+            // Get all official languages
+            var officialLanguages = UIsystemLanguage.items.Select(item => LanguageConvert(item, true));
+
+            // Merge and return all languages
+            return customLanguages.Concat(officialLanguages);
         }
 
         private static void ReloadPopupList(bool LoadSelectOnly = false, bool ForceLoadI2Name = false)
@@ -246,28 +334,60 @@ namespace COM3D2.i18nEx.Core.Hooks
             }
             try
             {
-                var val = string.Empty;
-                if (CheckConfigLanguageName()) val = "i18n/Lang/" + Configuration.General.ActiveLanguage.Value;
-                else
-                {
-                    if (pop.value.StartsWith("[KISS] ")) { if (OfficialLanguageDict != null && OfficialLanguageDict.TryGetValue(pop.value, out string Term)) val = OfficialLanguageConvert(Term); }
-                    else if (pop.value.IsNullOrWhiteSpace() || ForceLoadI2Name) val = OfficialLanguageConvert(UIsystemLanguage.value);
-                }
-                if ((val != string.Empty) || (val != pop.value)) pop.value = val;
-                UILabel_Label.SetCurrentSelection(); //Call localize.
-                if (LoadSelectOnly) return;
+                // Determine the current value to display
+                string val = string.Empty;
 
-                pop.Clear();
-                foreach (string item in Directory.GetDirectories("BepInEx\\i18nEx", "*", SearchOption.TopDirectoryOnly))
+                // If the translation for the current value is in the dictionary
+                if (LanguageDict != null && LanguageDict.TryGetValue(pop.value, out string Term))
                 {
-                    if (Utility.CheckLanguageName(Path.GetFileName(item), out string language))
-                        if (!pop.items.Contains(language)) pop.AddItem("i18n/Lang/" + language);
+                    if (CheckConfigLanguageName())
+                    {
+                        // Use configured language
+                        val = LanguageConvert("i18n/Lang/" + Configuration.General.ActiveLanguage.Value);
+                    }
+                    else
+                    {
+                        // Use official language
+                        val = LanguageConvert(Term, true);
+                    }
                 }
-                foreach (string item in UIsystemLanguage.items)
+                // If current value is empty or force loading is required
+                else if (pop.value.IsNullOrWhiteSpace() || ForceLoadI2Name)
                 {
-                    string language = OfficialLanguageConvert(item);
-                    if (!pop.items.Contains(language)) pop.AddItem(language);
+                    val = LanguageConvert(UIsystemLanguage.value, true);
                 }
+
+                // Only update when the value actually needs to change
+                if (!string.IsNullOrEmpty(val) && val != pop.value)
+                {
+                    if (Configuration.I2Translation.VerboseLogging.Value)
+                    {
+                        Core.Logger.LogInfo($"Setting popup value from '{pop.value}' to '{val}'");
+                    }
+                    pop.value = val;
+                }
+
+                // If only loading selection is needed, don't update list content
+                if (!LoadSelectOnly)
+                {
+                    // Clear and repopulate the language list
+                    pop.Clear();
+
+                    // Get all custom and official languages
+                    var allLanguages = GetAvailableLanguages();
+
+                    // Populate the dropdown list
+                    foreach (string language in allLanguages)
+                    {
+                        if (!string.IsNullOrEmpty(language) && !pop.items.Contains(language))
+                        {
+                            pop.AddItem(language);
+                        }
+                    }
+                }
+
+                // Update display
+                UILabel_Label.text = NoLocalize.MarkAsNoLocalize(val);
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -282,30 +402,69 @@ namespace COM3D2.i18nEx.Core.Hooks
                 Core.Logger.LogError($"Error reloading popup list: {ex}");
             }
         }
-        private static void SetCurrentLanguage(string langTerm)
+        private static void SetCurrentLanguage(string language)
         {
             // Logic from Product.Language.systemLanguage setter and ConfigManager.Init->systemLanguage.onChange
             //   Tip: Recommended language name reference I2.Loc.GoogleLanguages.mLanguageDef Dictionary
             //   Example: "Chinese/Traditional" => "Chinese (Traditional)"
 
-            string PostTerm = "i18n/Lang/";
-            if (langTerm.StartsWith("[KISS] "))
+            if (string.IsNullOrEmpty(language))
             {
-                if (OfficialLanguageDict != null && OfficialLanguageDict.TryGetValue(langTerm, out string Term))
-                    LocalizationManager.CurrentLanguage = Utility.ReFormatLanguageName(Term.Substring("System/言語/".Length), out _, log: true);
-                else
-                    LocalizationManager.CurrentLanguage = Product.EnumConvert.ToI2LocalizeLanguageName(Product.Language.Japanese);
+                // If language is empty, use default Japanese
+                LocalizationManager.CurrentLanguage = Product.EnumConvert.ToI2LocalizeLanguageName(Product.Language.Japanese);
                 Configuration.General.ActiveLanguage.Value = string.Empty;
-            }
-            else if (langTerm.StartsWith(PostTerm))
-            {
-                string language = Utility.ReFormatLanguageName(langTerm.Substring(PostTerm.Length), out _, log: true);
-                LocalizationManager.CurrentLanguage = language;
-                Configuration.General.ActiveLanguage.Value = language;
+                Core.Logger.LogInfo("Using default Japanese language");
+                return;
             }
 
+            bool isOfficialLanguage = language.StartsWith("[KISS] ");
+
+            // Check if the value exists in the language dictionary
+            if (LanguageDict != null && LanguageDict.TryGetValue(language, out string termValue))
+            {
+                // Extract actual language name
+                string prefix = isOfficialLanguage ? "System/言語/" : "i18n/Lang/";
+                if (termValue.StartsWith(prefix) && termValue.Length > prefix.Length)
+                {
+                    string languageName = termValue.Substring(prefix.Length);
+
+                    // Format language name
+                    string formattedLanguage = Utility.ReFormatLanguageName(languageName, out _, log: true);
+
+                    if (!string.IsNullOrEmpty(formattedLanguage))
+                    {
+                        // Set current language
+                        LocalizationManager.CurrentLanguage = formattedLanguage;
+
+                        // If it's an official language, don't save to configuration
+                        Configuration.General.ActiveLanguage.Value = isOfficialLanguage ? string.Empty : formattedLanguage;
+
+                        if (Configuration.I2Translation.VerboseLogging.Value)
+                            Core.Logger.LogInfo($"Setting language to: {formattedLanguage} (from {language})");
+
+                        // Reload all languages
+                        ReloadAllLanguages();
+                        return;
+                    }
+                }
+            }
+
+            // If unable to process the selected language, use Japanese
+            Core.Logger.LogWarning($"Could not process selected language: {language}. Using Japanese instead.");
+            LocalizationManager.CurrentLanguage = Product.EnumConvert.ToI2LocalizeLanguageName(Product.Language.Japanese);
+            Configuration.General.ActiveLanguage.Value = string.Empty;
+
             // Reload all languages
-            foreach (LanguageSource languageSource in LocalizationManager.Sources) languageSource.LoadAllLanguages(false);
+            ReloadAllLanguages();
+        }
+
+        // Helper method: Reload all languages
+        private static void ReloadAllLanguages()
+        {
+            foreach (LanguageSource languageSource in LocalizationManager.Sources)
+            {
+                languageSource.LoadAllLanguages(false);
+            }
         }
     }
 }

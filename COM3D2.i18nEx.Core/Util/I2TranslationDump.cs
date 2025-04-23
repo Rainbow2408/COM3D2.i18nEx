@@ -82,7 +82,7 @@ namespace COM3D2.i18nEx.Core.Util
 
             var csvPath = Path.Combine(extractPath, $"{mainCategory}.csv");
             if (!File.Exists(csvPath))
-                File.WriteAllText(csvPath, "Key,Type,Desc,Japanese,English\n", Utf8);
+                File.WriteAllText(csvPath, $"Key,Type,Desc,Japanese,{Core.CurrentSelectedLanguage}\n", Utf8);
             File.AppendAllText(csvPath, $"{restTerm.EscapeCsv()},Text,,,\n", Utf8);
 
             DumpedTerms.Add(Term);
