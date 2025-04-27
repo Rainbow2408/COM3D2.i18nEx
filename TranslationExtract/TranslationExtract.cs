@@ -94,7 +94,7 @@ namespace TranslationExtract
         }
     }
 
-    [BepInPlugin("horse.coder.com3d2.tlextract", "Translation Extractor", PluginInfo.PLUGIN_VERSION)]
+    [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
     public class TranslationExtract : BaseUnityPlugin
     {
         public const string TL_DIR = "COM3D2_Localisation";

@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <AssemblyTitle>TranslationExtract</AssemblyTitle>
-        <Product>TranslationExtract</Product>
+        <AssemblyTitle>COM3D2.i18nEx.TranslationExtract</AssemblyTitle>
+        <AssemblyName>horse.coder.com3d2.tlextract</AssemblyName>
+        <Product>i18nEx Translation Extractor</Product>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="BepInEx.Core" Version="5.4.16"/>

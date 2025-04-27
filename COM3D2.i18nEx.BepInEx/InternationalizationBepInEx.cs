@@ -4,7 +4,7 @@ using ILogger = COM3D2.i18nEx.Core.ILogger;
 
 namespace COM3D2.i18nEx.BepInEx
 {
-    [BepInPlugin("horse.coder.com3d2.i18nex", "i18nEx", PluginInfo.PLUGIN_VERSION)]
+    [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
     [BepInDependency("gravydevsupreme.xunity.autotranslator", BepInDependency.DependencyFlags.SoftDependency)]
     public class InternationalizationBepInEx : BaseUnityPlugin, ILogger
     {
