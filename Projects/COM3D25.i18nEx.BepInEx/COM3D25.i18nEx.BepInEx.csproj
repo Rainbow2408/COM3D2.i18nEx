@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <AssemblyTitle>COM3D25.i18nEx.BepInEx</AssemblyTitle>
+        <AssemblyName>horse.coder.com3d25.i18nex</AssemblyName>
+        <Product>i18nEx for 3.x</Product>
+        <DefineConstants>COM3D25;$(DefineConstants)</DefineConstants>
+    </PropertyGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\COM3D25.i18nEx.Core\COM3D25.i18nEx.Core.csproj"/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="BepInEx.Core" Version="5.4.16" IncludeAssets="compile"/>
+        <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile"/>
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*"/>
+    </ItemGroup>
+</Project>
