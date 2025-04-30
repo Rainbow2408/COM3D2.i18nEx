@@ -1,12 +1,20 @@
 <Project>
     <PropertyGroup>
-        <TargetFramework>net35</TargetFramework>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <Version>1.5.1</Version>
+        <Version>1.6.0.3</Version>
         <LangVersion>9.0</LangVersion>
-        <OutputPath>..\bin\</OutputPath>
+        <OutputPath>..\..\bin\</OutputPath>
         <DebugType>none</DebugType>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Copyright>Copyright © Geoffrey Horsington 2021</Copyright>
     </PropertyGroup>
+    
+    <!-- Target to remove unnecessary System DLLs after build -->
+    <Target Name="RemoveUnneededDlls" AfterTargets="Build">
+        <!-- Using the Exec task with cmd to delete files silently -->
+        <Exec Command="cmd /c &quot;del /f /q &quot;$(OutputPath)System.*.dll&quot; 2>nul&quot;" IgnoreExitCode="true" ContinueOnError="true"/>
+        <Exec Command="cmd /c &quot;del /f /q &quot;$(OutputPath)Microsoft.Win32.*.dll&quot; 2>nul&quot;" IgnoreExitCode="true" ContinueOnError="true"/>
+        <Exec Command="cmd /c &quot;del /f /q &quot;$(OutputPath)netstandard.dll&quot; 2>nul&quot;" IgnoreExitCode="true" ContinueOnError="true"/>
+        <Message Text="Cleaned unnecessary DLLs from output directory" Importance="low"/>
+    </Target>
 </Project>

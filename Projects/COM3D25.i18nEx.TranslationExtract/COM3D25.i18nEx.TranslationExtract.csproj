@@ -1,17 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <TargetFramework>net461</TargetFramework>
         <AssemblyTitle>COM3D25.i18nEx.TranslationExtract</AssemblyTitle>
+        <TargetName>$(AssemblyTitle)</TargetName>
         <AssemblyName>horse.coder.com3d25.tlextract</AssemblyName>
         <Product>i18nEx for 3.x Translation Extractor</Product>
+        <RootNamespace>COM3D2.i18nEx.TranslationExtract</RootNamespace>
         <DefineConstants>COM3D25;$(DefineConstants)</DefineConstants>
     </PropertyGroup>
     <ItemGroup>
-        <PackageReference Include="BepInEx.Core" Version="5.4.16"/>
-        <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile"/>
-        <PackageReference Include="COM3D2.GameLibs" Version="3.4*-*" IncludeAssets="compile"/>
-        <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*"/>
+        <Compile Include="..\..\COM3D2.i18nEx.TranslationExtract\**\*.cs"/>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="..\..\COM3D2.i18nEx.TranslationExtract\**\*.cs" />
+        <PackageReference Include="BepInEx.Core" Version="5.4.16"/>
+        <PackageReference Include="UnityEngine.Modules" Version="2022.3.35" IncludeAssets="compile"/>
+        <PackageReference Include="COM3D2.GameLibs" Version="3.4*-*" IncludeAssets="compile"/>
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="1.*"/>
+        <PackageReference Include="NETStandard.Library" Version="2.0.*"/>
     </ItemGroup>
 </Project>

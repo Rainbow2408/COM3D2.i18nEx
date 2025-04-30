@@ -1,11 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <TargetFramework>net35</TargetFramework>
         <AssemblyTitle>COM3D2.i18nEx.BepInEx</AssemblyTitle>
+        <TargetName>$(AssemblyTitle)</TargetName>
         <AssemblyName>horse.coder.com3d2.i18nex</AssemblyName>
         <Product>i18nEx for 2.x</Product>
     </PropertyGroup>
     <ItemGroup>
         <ProjectReference Include="..\COM3D2.i18nEx.Core\COM3D2.i18nEx.Core.csproj"/>
+        <Compile Include="..\..\COM3D2.i18nEx.BepInEx\**\*.cs"/>
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="BepInEx.Core" Version="5.4.16" IncludeAssets="compile"/>

@@ -12,7 +12,7 @@ using BepInEx.Logging;
 using I2.Loc;
 using UnityEngine;
 
-namespace TranslationExtract
+namespace COM3D2.i18nEx.TranslationExtract
 {
     internal static class Extensions
     {
