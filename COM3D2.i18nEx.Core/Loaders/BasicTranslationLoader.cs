@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using COM3D2.i18nEx.Core.Util;
+using System.Linq;
 using ExIni;
 
 namespace COM3D2.i18nEx.Core.Loaders
@@ -43,7 +45,7 @@ namespace COM3D2.i18nEx.Core.Loaders
 
         public IEnumerable<string> GetUITranslationFileNames()
         {
-			var uiPath = Path.Combine(langPath, "UI");
+            var uiPath = Path.Combine(langPath, "UI");
             if (!Directory.Exists(uiPath))
                 return null;
             return Directory.GetFiles(uiPath, "*.csv", SearchOption.AllDirectories);

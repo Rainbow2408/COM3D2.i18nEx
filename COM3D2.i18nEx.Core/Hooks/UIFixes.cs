@@ -8,7 +8,6 @@ using HarmonyLib;
 using I2.Loc;
 using Kasizuki;
 using MaidStatus;
-using Teikokusou;
 using UnityEngine;
 using UnityEngine.UI;
 using wf;
@@ -198,7 +197,8 @@ namespace COM3D2.i18nEx.Core.Hooks
                     yield return ins;
         }
 
-        [HarmonyPatch(typeof(UIWFConditionList), nameof(UIWFConditionList.SetTexts), typeof(KeyValuePair<string[], Color>[]), typeof(int))]
+        [HarmonyPatch(typeof(UIWFConditionList), nameof(UIWFConditionList.SetTexts),
+                         typeof(KeyValuePair<string[], Color>[]), typeof(int))]
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> FixSetTexts(IEnumerable<CodeInstruction> instrs)
         {
@@ -240,9 +240,11 @@ namespace COM3D2.i18nEx.Core.Hooks
             }
         }
 
-        [HarmonyPatch(typeof(SkillAcquisitionCondition), nameof(SkillAcquisitionCondition.CreateConditionTextAndStaturResults))]
+        [HarmonyPatch(typeof(SkillAcquisitionCondition),
+                         nameof(SkillAcquisitionCondition.CreateConditionTextAndStaturResults))]
         [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> TranspileCreateConditionTextAndStaturResults(IEnumerable<CodeInstruction> instrs)
+        public static IEnumerable<CodeInstruction> TranspileCreateConditionTextAndStaturResults(
+            IEnumerable<CodeInstruction> instrs)
         {
             var supportMultiLang = AccessTools.PropertyGetter(typeof(Product), nameof(Product.supportMultiLanguage));
             foreach (var ins in instrs)
