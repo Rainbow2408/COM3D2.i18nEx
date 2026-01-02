@@ -95,16 +95,27 @@ namespace COM3D2.i18nEx.Core
 
             LoadLanguage(Configuration.General.ActiveLanguage.Value);
             Configuration.General.ActiveLanguage.ValueChanged += LoadLanguage;
+            Configuration.I2Translation.DumpTexts.ValueChanged += I2TranslationDump.Feature;
         }
 
         private void LoadLanguage(string langName)
         {
             var tlLang = Path.Combine(Paths.TranslationsRoot, langName);
+            if (!Utility.CheckLanguageName(langName, out _))
+            {
+                TranslationLoader ??= new BasicTranslationLoader();
+                TranslationLoader?.UnloadCurrentTranslation();
+                foreach (var mgr in managers)
+                    mgr.LoadLanguage();
+                I2TranslationDump.Unload();
+                CurrentSelectedLanguage = string.Empty;
+                return;
+            }
 
             if (!Directory.Exists(tlLang))
             {
-                Logger.LogWarning($"No translations for language \"{langName}\" was found!");
-                return;
+                Logger.LogWarning($"No translations for language \"{langName}\" was found! Create Directory.");
+                Directory.CreateDirectory(tlLang);
             }
 
             TranslationLoader?.UnloadCurrentTranslation();

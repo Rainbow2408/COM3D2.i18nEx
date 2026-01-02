@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using COM3D2.i18nEx.Core.TranslationManagers;
 using COM3D2.i18nEx.Core.Util;
 using ExIni;
@@ -29,7 +30,7 @@ namespace COM3D2.i18nEx.Core
                 var key = scriptSection["InsertJapaneseTextIntoEnglishText"];
                 if (bool.TryParse(key.Value, out var val))
                     ScriptTranslations.RerouteTranslationsTo.Value =
-                        val ? TranslationsReroute.RouteToEnglish : TranslationsReroute.None;
+                        val ? TranslationsReroute.RouteToLocal : TranslationsReroute.None;
                 scriptSection.DeleteKey("InsertJapaneseTextIntoEnglishText");
                 configFile.Save(Paths.ConfigurationFilePath);
             }
@@ -37,9 +38,28 @@ namespace COM3D2.i18nEx.Core
 
         public static void Reload()
         {
-            configFile.Merge(IniFile.FromFile(Paths.ConfigurationFilePath));
+            Merge(IniFile.FromFile(Paths.ConfigurationFilePath));
             foreach (var reloadableWrapper in reloadableWrappers)
                 reloadableWrapper.Reload();
+        }
+
+        private static void Merge(IniFile ini)
+        {
+            if (!(ini.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
+                configFile.Comments.Comments = ini.Comments.Comments.ToList();
+            foreach (IniSection section in ini.Sections)
+            {
+                IniSection iniSection = configFile[section.Section];
+                if (!(section.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
+                    iniSection.Comments.Comments = section.Comments.Comments.ToList();
+                foreach (IniKey key in section.Keys)
+                {
+                    IniKey iniKey = iniSection[key.Key];
+                    if (!(key.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
+                        iniKey.Comments.Comments = key.Comments.Comments.ToList();
+                    iniKey.Value = key.Value;
+                }
+            }
         }
 
         private static ConfigWrapper<T> Wrap<T>(string section,
@@ -111,8 +131,8 @@ namespace COM3D2.i18nEx.Core
             public ConfigWrapper<TranslationsReroute> RerouteTranslationsTo = Wrap(
              "ScriptTranslations",
              "RerouteTranslationsTo",
-             "Allows you to route both English and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. English text is written into English textbox; Japanese into Japanese\nRouteToEnglish -- Puts Japanese text into English textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
-             TranslationsReroute.RouteToJapanese,
+             "Allows you to route both Local and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. Local text is written into Local textbox; Japanese into Japanese\nRouteToLocal -- Puts Japanese text into Local textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
+             TranslationsReroute.RouteToLocal,
              EnumConverter<TranslationsReroute>
                 .EnumToString,
              EnumConverter<TranslationsReroute>
@@ -157,6 +177,9 @@ namespace COM3D2.i18nEx.Core
 
         internal class I2TranslationConfig
         {
+            public ConfigWrapper<bool> EngUIStyle = Wrap("I2Translation", "EngUIStyle",
+                                                         "If enabled, the user interface will switch to the English style; if not, it will remain in the Japanese version.", false);
+
             public ConfigWrapper<string> CustomUIFont = Wrap("I2Translation", "CustomUIFont",
                                                              "If specified, replaces the UI font with this one.\nIMPORTANT: The font **must** be installed on your machine and it **must** be a TrueType font.",
                                                              "");

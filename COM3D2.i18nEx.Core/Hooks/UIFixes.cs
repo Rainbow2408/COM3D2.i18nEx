@@ -70,7 +70,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         private static void SetLoc(GameObject go, string text)
         {
             var loc = go.GetComponent<Localize>();
-            if (loc != null || string.IsNullOrEmpty(text))
+            if (loc != null || string.IsNullOrEmpty(text) || Util.NoLocalize.IsMarkedAsNoLocalize(text))
                 return;
 
             var term = $"General/{text.Replace(" ", "_")}";

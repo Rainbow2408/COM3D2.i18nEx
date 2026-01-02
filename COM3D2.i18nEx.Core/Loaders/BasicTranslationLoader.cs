@@ -20,13 +20,16 @@ namespace COM3D2.i18nEx.Core.Loaders
 
         public void UnloadCurrentTranslation()
         {
-            Core.Logger.LogInfo($"Unloading language \"{CurrentLanguage}\"");
+            if (!string.IsNullOrEmpty(CurrentLanguage))
+                Core.Logger.LogInfo($"Unloading language \"{CurrentLanguage}\"");
             CurrentLanguage = null;
             langPath = null;
         }
 
         public IEnumerable<string> GetScriptTranslationFileNames()
         {
+            if (string.IsNullOrEmpty(langPath))
+                return null;
             var scriptPath = Path.Combine(langPath, "Script");
             if (!Directory.Exists(scriptPath))
                 return null;
@@ -35,6 +38,8 @@ namespace COM3D2.i18nEx.Core.Loaders
 
         public IEnumerable<string> GetTextureTranslationFileNames()
         {
+            if (string.IsNullOrEmpty(langPath))
+                return null;
             var texPath = Path.Combine(langPath, "Textures");
             if (!Directory.Exists(texPath))
                 return null;
@@ -43,6 +48,8 @@ namespace COM3D2.i18nEx.Core.Loaders
 
         public IEnumerable<string> GetUITranslationFileNames()
         {
+            if (string.IsNullOrEmpty(langPath))
+                return null;
 			var uiPath = Path.Combine(langPath, "UI");
             if (!Directory.Exists(uiPath))
                 return null;
@@ -61,6 +68,8 @@ namespace COM3D2.i18nEx.Core.Loaders
 
         public Stream OpenUiTranslation(string path)
         {
+            if (string.IsNullOrEmpty(langPath))
+                return null;
             path = Utility.CombinePaths(langPath, "UI", path);
             return !File.Exists(path) ? null : File.OpenRead(path);
         }
