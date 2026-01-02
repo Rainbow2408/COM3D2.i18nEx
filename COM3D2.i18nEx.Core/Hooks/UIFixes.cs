@@ -273,6 +273,8 @@ namespace COM3D2.i18nEx.Core.Hooks
                     yield return ins;
         }
 
+        // This seems outdated creating duplicated entries in Edit Mode personality dropdown list.
+        /*
         [HarmonyPatch(typeof(ProfileCtrl), "Init")]
         [HarmonyTranspiler]
         public static IEnumerable<CodeInstruction> FixProfileCtrlPersonalityDisplay(IEnumerable<CodeInstruction> instrs)
@@ -289,6 +291,9 @@ namespace COM3D2.i18nEx.Core.Hooks
                 else
                     yield return ins;
         }
+        */
+        
+        
 
         [HarmonyPatch(typeof(UILabel), nameof(UILabel.SetCurrentSelection))]
         [HarmonyPrefix]
