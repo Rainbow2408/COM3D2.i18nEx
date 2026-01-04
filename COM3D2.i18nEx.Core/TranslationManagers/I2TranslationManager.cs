@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using COM3D2.i18nEx.Core.Util;
@@ -13,7 +13,7 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
 
         private void Update()
         {
-            if (Configuration.I2Translation.ReloadTranslationsKey.Value.IsPressed)
+            if (Configuration.UIReloadTranslationsKey?.Value.IsDown() == true)
                 ReloadActiveTranslations();
         }
 
@@ -41,13 +41,13 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
 
             foreach (var csvFilePath in csvFiles.OrderByDescending(k => k, StringComparer.InvariantCultureIgnoreCase))
             {
-                if (Configuration.I2Translation.VerboseLogging.Value)
+                if (Configuration.UIVerboseLogging?.Value == true)
                     Core.Logger.LogInfo($"Loading unit {csvFilePath}");
 
                 //Fixes subfoldered files being loaded improperly.
                 var categoryName = Path.GetFileNameWithoutExtension(csvFilePath);//tlFile.Replace("\\", "/").Splice(0, -5);
 
-				if (Configuration.I2Translation.VerboseLogging.Value)
+				if (Configuration.UIVerboseLogging?.Value == true)
                     Core.Logger.LogInfo($"Loading category {categoryName}");
 
                 string csvFile;

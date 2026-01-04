@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using COM3D2.i18nEx.Core.Hooks;
 using COM3D2.i18nEx.Core.Loaders;
 using COM3D2.i18nEx.Core.TranslationManagers;
@@ -27,6 +26,8 @@ namespace COM3D2.i18nEx.Core
 
         public static ILogger Logger { get; private set; }
 
+        internal static BepInEx.BaseUnityPlugin pluginInstance;
+
         public bool Initialized { get; private set; }
 
         internal static ITranslationLoader TranslationLoader { get; private set; }
@@ -42,21 +43,27 @@ namespace COM3D2.i18nEx.Core
 
         private void Update()
         {
-            KeyCommandHandler.UpdateState();
+            // Check reload config key
+            if (Configuration.ReloadConfigKey?.Value.IsDown() == true)
+            {
+                Logger.LogInfo("Reloading configuration...");
+                pluginInstance?.Config.Reload();
+            }
 
-            if (Configuration.General.ReloadConfigKey.Value.IsPressed)
-                Configuration.Reload();
-
-            if (Configuration.General.ReloadTranslationsKey.Value.IsPressed)
+            // Check global reload translations key
+            if (Configuration.GeneralReloadTranslationsKey?.Value.IsDown() == true)
+            {
+                Logger.LogInfo("Reloading current translation...");
                 foreach (var mgr in managers)
                     mgr.ReloadActiveTranslations();
+            }
 
-            if (Input.GetKey(KeyCode.Keypad0))
+            if (Configuration.DebugPrintLanguageSourcesKey?.Value.IsDown() == true)
                 foreach (var languageSource in LocalizationManager.Sources)
                     Logger.LogInfo($"Got source {languageSource}");
         }
 
-        public void Initialize(ILogger logger, string gameRoot)
+        public void Initialize(ILogger logger, string gameRoot, BepInEx.BaseUnityPlugin pluginInstance = null)
         {
             if (GameVersion < MIN_SUPPORTED_VERSION)
             {
@@ -73,6 +80,26 @@ namespace COM3D2.i18nEx.Core
             Logger.LogInfo("Initializing i18nEx...");
 
             Paths.Initialize(gameRoot);
+            
+            // Store plugin reference for config reload
+            Core.pluginInstance = pluginInstance;
+            
+            // Initialize core configuration FIRST (always works, no ConfigurationManager dependency)
+            if (pluginInstance != null)
+            {
+                Configuration.Initialize();
+                
+                // Then try ConfigurationManager GUI integration (optional)
+                try
+                {
+                    ConfigurationManagerIntegration.Initialize();
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogInfo($"ConfigurationManager GUI not available (optional): {ex.Message}");
+                }
+            }
+            
             TranslationHooks.Initialize();
             InitializeTranslationManagers();
 
@@ -93,9 +120,27 @@ namespace COM3D2.i18nEx.Core
             TextureReplace = RegisterTranslationManager<TextureReplaceManager>();
             I2Translation = RegisterTranslationManager<I2TranslationManager>();
 
-            LoadLanguage(Configuration.General.ActiveLanguage.Value);
-            Configuration.General.ActiveLanguage.ValueChanged += LoadLanguage;
-            Configuration.I2Translation.DumpTexts.ValueChanged += I2TranslationDump.Feature;
+            // Load initial language
+            var activeLanguage = Configuration.ActiveLanguage?.Value ?? "English";
+            LoadLanguage(activeLanguage);
+            
+            // Subscribe to language change events
+            if (Configuration.ActiveLanguage != null)
+            {
+                Configuration.ActiveLanguage.SettingChanged += (sender, args) =>
+                {
+                    LoadLanguage(Configuration.ActiveLanguage.Value);
+                };
+            }
+            
+            // Subscribe to DumpTexts change events
+            if (Configuration.DumpTexts != null)
+            {
+                Configuration.DumpTexts.SettingChanged += (sender, args) =>
+                {
+                    I2TranslationDump.Feature(Configuration.DumpTexts.Value);
+                };
+            }
         }
 
         private void LoadLanguage(string langName)
@@ -132,63 +177,42 @@ namespace COM3D2.i18nEx.Core
                 mgr.LoadLanguage();
 
             CurrentSelectedLanguage = langName;
-
             I2TranslationDump.Initialize();
         }
 
-        private ITranslationLoader GetLoader(string loaderName)
+        /// <summary>
+        /// Loads the per-language configuration file from a translation folder.
+        /// Note: This is NOT the plugin configuration - it's the translation pack's config.ini
+        /// (e.g., BepInEx/i18nEx/English/config.ini) which can specify custom translation loaders.
+        /// Uses ExIni library for INI parsing (separate from BepInEx.Configuration).
+        /// </summary>
+        /// <param name="tlLang">Path to the translation language folder</param>
+        /// <returns>IniFile if config exists, null otherwise</returns>
+        private static IniFile LoadLanguageConfig(string tlLang)
         {
-            if (string.IsNullOrEmpty(loaderName))
-                return new BasicTranslationLoader();
-
-            var loadersPath = Path.Combine(Paths.TranslationsRoot, "loaders");
-            if (!Directory.Exists(loadersPath))
-                Directory.CreateDirectory(loadersPath);
-
-            loaderName = loaderName.Trim();
-
-            if (loaderName == "BasicLoader")
-                return new BasicTranslationLoader();
-
-            var loaderPath = Path.Combine(loadersPath, $"{loaderName}.dll");
-            if (!File.Exists(loaderPath))
-                return new BasicTranslationLoader();
-
+            var tlConfig = Path.Combine(tlLang, "config.ini");
+            if (!File.Exists(tlConfig))
+                return null;
             try
             {
-                var ass = Assembly.LoadFile(loaderPath);
-                var loader = ass.GetTypes().FirstOrDefault(t => t.GetInterface(nameof(ITranslationLoader)) != null);
-
-                Logger.LogInfo($"Invoking loader {loader}");
-
-                if (loader != null)
-                    return Activator.CreateInstance(loader) as ITranslationLoader;
-
-                Logger.LogWarning(
-                                  $"Loader \"{loaderName}.dll\" doesn't contain any translation loader implementations!");
-                return new BasicTranslationLoader();
+                return IniFile.FromFile(tlConfig);
             }
             catch (Exception e)
             {
-                Logger.LogWarning($"Failed to load translation loader \"{loaderName}.dll\". Reason: {e.Message}");
-                return new BasicTranslationLoader();
+                Logger.LogWarning($"Failed to read configuration file for current translation: {e.Message}");
             }
+
+            return null;
         }
 
-        private IniFile LoadLanguageConfig(string tlPath)
+        private static ITranslationLoader GetLoader(string loaderName)
         {
-            var iniFile = Path.Combine(tlPath, "config.ini");
-            if (!File.Exists(iniFile))
-                return null;
-            try
-            {
-                return IniFile.FromFile(iniFile);
-            }
-            catch (Exception e)
-            {
-                Logger.LogWarning($"Failed to read config.ini. Reason: {e.Message}");
-                return null;
-            }
+            return typeof(Core).Assembly.GetTypes()
+                               .Where(t => t.IsClass && !t.IsAbstract &&
+                                           typeof(ITranslationLoader).IsAssignableFrom(t) &&
+                                           t.Name.Equals(loaderName, StringComparison.InvariantCultureIgnoreCase))
+                               .Select(t => (ITranslationLoader)Activator.CreateInstance(t)).FirstOrDefault() ??
+                   new BasicTranslationLoader();
         }
     }
 }

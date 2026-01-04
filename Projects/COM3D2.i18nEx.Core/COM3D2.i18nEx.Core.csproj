@@ -7,14 +7,15 @@
         <Product>COM3D2 i18nEx Core</Product>
     </PropertyGroup>
     <ItemGroup>
-        <None Include="..\..\.editorconfig" Link=".editorconfig"/>
-        <Compile Include="..\..\COM3D2.i18nEx.Core\**\*.cs"/>
+        <None Include="..\..\.editorconfig" Link=".editorconfig" />
+        <Compile Include="..\..\COM3D2.i18nEx.Core\**\*.cs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="ExIni" Version="1.0.2" IncludeAssets="compile"/>
-        <PackageReference Include="HarmonyX" Version="2.5.5" IncludeAssets="compile"/>
-        <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile"/>
-        <PackageReference Include="COM3D2.GameLibs" Version="2.*-*" IncludeAssets="compile"/>
-        <Reference Include="System.Windows.Forms"/>
+        <PackageReference Include="BepInEx.Core" Version="5.4.16" />
+        <PackageReference Include="ExIni" Version="1.0.2" IncludeAssets="compile" />
+        <PackageReference Include="HarmonyX" Version="2.5.5" IncludeAssets="compile" />
+        <PackageReference Include="UnityEngine.Modules" Version="5.6.0" IncludeAssets="compile" />
+        <PackageReference Include="COM3D2.GameLibs" Version="2.*-*" IncludeAssets="compile" />
+        <Reference Include="System.Windows.Forms" />
     </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace COM3D2.i18nEx.Core.TranslationManagers
 {
-    internal enum TranslationsReroute
+    public enum TranslationsReroute
     {
         None,
         RouteToLocal,
@@ -113,7 +113,7 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
 
         private void Update()
         {
-            if (Configuration.ScriptTranslations.ReloadTranslationsKey.Value.IsPressed)
+            if (Configuration.ScriptReloadTranslationsKey?.Value.IsDown() == true)
                 ReloadActiveTranslations();
         }
 
@@ -191,7 +191,7 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
 
         private string NoTranslation(string inputText)
         {
-            if (Configuration.ScriptTranslations.SendScriptToClipboard.Value)
+            if (Configuration.SendScriptToClipboard?.Value == true)
                 clipboardBuffer.AppendLine(inputText);
             return null;
         }
@@ -200,7 +200,8 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
         {
             while (true)
             {
-                yield return new WaitForSeconds((float)Configuration.ScriptTranslations.ClipboardCaptureTime.Value);
+                var captureTime = Configuration.ClipboardCaptureTime?.Value ?? 0.25;
+                yield return new WaitForSeconds((float)captureTime);
 
                 if (clipboardBuffer.Length > 0)
                 {
@@ -214,7 +215,8 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
         {
             if (!translationFiles.ContainsKey(fileName))
             {
-                var tlPath = Path.Combine(Paths.TranslationsRoot, Configuration.General.ActiveLanguage.Value);
+                var activeLanguage = Configuration.ActiveLanguage?.Value ?? "English";
+                var tlPath = Path.Combine(Paths.TranslationsRoot, activeLanguage);
                 var textTlPath = Path.Combine(tlPath, "Script");
 
                 if (!Directory.Exists(textTlPath))
@@ -251,7 +253,8 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
                 return node;
             }
 
-            if (translationFileCache.Count == Configuration.ScriptTranslations.MaxTranslationFilesCached.Value)
+            var cacheSize = Configuration.MaxTranslationFilesCached?.Value ?? 1;
+            if (translationFileCache.Count == cacheSize)
             {
                 translationFileLookup.Remove(translationFileCache.Last.Value.FileName);
                 translationFileCache.RemoveLast();

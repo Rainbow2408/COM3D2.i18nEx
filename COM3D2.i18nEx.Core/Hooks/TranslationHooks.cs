@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -42,7 +42,7 @@ namespace COM3D2.i18nEx.Core.Hooks
         {
             if (CheckConfigLanguageName())
             {
-                __result = Configuration.I2Translation.EngUIStyle.Value ? Product.Language.English : Product.Language.Japanese;
+                __result = (Configuration.EngUIStyle?.Value == true) ? Product.Language.English : Product.Language.Japanese;
             }
         }
 
@@ -52,7 +52,8 @@ namespace COM3D2.i18nEx.Core.Hooks
         {
             if (CheckConfigLanguageName())
             {
-                SetCurrentLanguage("i18n/Lang/" + Configuration.General.ActiveLanguage.Value);
+                var activeLanguage = Configuration.ActiveLanguage?.Value ?? "";
+                SetCurrentLanguage("i18n/Lang/" + activeLanguage);
                 __runOriginal = false;
             }
         }
@@ -109,12 +110,12 @@ namespace COM3D2.i18nEx.Core.Hooks
         private static bool OnGetConfigMessageAlpha(SubtitleDisplayManager __instance, ref float value)
         {
             var parent = __instance.transform.parent;
-            if (Configuration.I2Translation.OverrideSubtitleOpacity.Value &&
+            if ((Configuration.OverrideSubtitleOpacity?.Value == true) &&
                 parent                                                    && parent.name == "YotogiPlayPanel")
             {
                 if (Math.Abs(value - __instance.messageBgAlpha) < 0.001)
                     return false;
-                value = Mathf.Clamp(Configuration.I2Translation.SubtitleOpacity.Value, 0f, 1f);
+                value = Mathf.Clamp(Configuration.SubtitleOpacity?.Value ?? 1f, 0f, 1f);
             }
 
             return true;
@@ -131,27 +132,62 @@ namespace COM3D2.i18nEx.Core.Hooks
                                              GameObject localParametersRoot,
                                              string overrideLanguage)
         {
-            if (__result.IsNullOrWhiteSpace() || __result.IndexOf('/') >= 0 && Term.Contains(__result))
+            // 翻譯回退邏輯：i18nEx → 遊戲內建對應語言 → 日文 → 原處理
+            // 如果結果為空或無效（包含 '/' 且 Term 包含結果）
+            if (__result.IsNullOrWhiteSpace() || (__result.IndexOf('/') >= 0 && Term.Contains(__result)))
             {
-                if (overrideLanguage != "Japanese")
-                    __result = LocalizationManager.GetTranslation(Term, FixForRTL, maxLineLengthForRTL, ignoreRTLnumbers,
-                                                                  applyParameters, localParametersRoot, "Japanese");
-                else if (overrideLanguage == "Japanese")
+                // 1. 首先嘗試從 i18nEx 自定義翻譯取得（已由主邏輯處理）
+
+                // 2. 如果當前語言不是日文，嘗試從遊戲內建的對應語言取得
+                if (!string.IsNullOrEmpty(overrideLanguage) && overrideLanguage != "Japanese")
                 {
                     I2Source ??= LocalizationManager.Sources
                                 .Skip(1)
                                 .FirstOrDefault(source => source.name == "I2Languages");
-                    if (I2Source != null && I2Source.TryGetTranslation(Term, out __result, overrideLanguage))
+
+                    if (I2Source != null && I2Source.TryGetTranslation(Term, out string translationFromBuiltin, overrideLanguage))
                     {
+                        __result = translationFromBuiltin;
                         if (applyParameters)
                             LocalizationManager.ApplyLocalizationParams(ref __result, localParametersRoot);
                         if (LocalizationManager.IsRight2Left && FixForRTL)
                             __result = LocalizationManager.ApplyRTLfix(__result, maxLineLengthForRTL, ignoreRTLnumbers);
+
+                        if (Configuration.UIVerboseLogging?.Value == true)
+                            Core.Logger.LogInfo($"[I2Loc] Found translation in built-in {overrideLanguage}: \"{Term}\" => \"{__result}\"");
+                        return;
                     }
                 }
+
+                // 3. 如果還是沒找到，嘗試從日文取得
+                if (I2Source == null)
+                {
+                    I2Source = LocalizationManager.Sources
+                                .Skip(1)
+                                .FirstOrDefault(source => source.name == "I2Languages");
+                }
+
+                if (I2Source != null && I2Source.TryGetTranslation(Term, out string japaneseTranslation, "Japanese"))
+                {
+                    __result = japaneseTranslation;
+                    if (applyParameters)
+                        LocalizationManager.ApplyLocalizationParams(ref __result, localParametersRoot);
+                    if (LocalizationManager.IsRight2Left && FixForRTL)
+                        __result = LocalizationManager.ApplyRTLfix(__result, maxLineLengthForRTL, ignoreRTLnumbers);
+
+                    if (Configuration.UIVerboseLogging?.Value == true)
+                        Core.Logger.LogInfo($"[I2Loc] Fallback to Japanese: \"{Term}\" => \"{__result}\"");
+                    return;
+                }
+
+                // 4. 如果還是沒找到，保持原本的處理（__result 保持原值）
+                if (Configuration.UIVerboseLogging?.Value == true)
+                    Core.Logger.LogWarning($"[I2Loc] No translation found for term: \"{Term}\"");
             }
-            else if (Configuration.I2Translation.VerboseLogging.Value)
+            else if (Configuration.UIVerboseLogging?.Value == true)
+            {
                 Core.Logger.LogInfo($"[I2Loc] Translating term \"{Term}\" => \"{__result}\"");
+            }
         }
 
         [HarmonyPatch(typeof(ConfigMgr), nameof(ConfigMgr.Update))]
@@ -249,7 +285,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             UIsystemLanguage.enabled = false;
         }
 
-        private static string LanguageConvert(string Term, bool Official = false)
+        private static string LanguageConvert(string Term)
         {
             // Check input
             if (string.IsNullOrEmpty(Term) && !(Term == "-"))
@@ -262,10 +298,6 @@ namespace COM3D2.i18nEx.Core.Hooks
             string translatedTerm = LocalizationManager.GetTranslation(Term, false);
             bool hasTranslation = !string.IsNullOrEmpty(translatedTerm);
 
-            // If it's an official language, add marker
-            if (Official && hasTranslation)
-                translatedTerm = "[KISS] " + translatedTerm;
-
             // Store mapping of original term and translation
             string resultTerm = hasTranslation ? translatedTerm : Term;
             LanguageDict[resultTerm] = Term;
@@ -275,23 +307,43 @@ namespace COM3D2.i18nEx.Core.Hooks
 
         private static bool CheckConfigLanguageName()
         {
+            var activeLanguage = Configuration.ActiveLanguage?.Value ?? "";
+            
             // Check if there is a configured language
-            if (string.IsNullOrEmpty(Configuration.General.ActiveLanguage.Value))
+            if (string.IsNullOrEmpty(activeLanguage))
                 return false;
 
             // Format language name
-            string language = Utility.ReFormatLanguageName(Configuration.General.ActiveLanguage.Value, out string message, log: true);
+            string language = Utility.ReFormatLanguageName(activeLanguage, out string message, log: true);
             if (string.IsNullOrEmpty(language))
             {
-                Core.Logger.LogWarning($"Invalid language name: {Configuration.General.ActiveLanguage.Value}.{message}");
-                Configuration.General.ActiveLanguage.Value = string.Empty;
+                Core.Logger.LogWarning($"Invalid language name: {activeLanguage}.{message}");
+                if (Configuration.ActiveLanguage != null)
+                    Configuration.ActiveLanguage.Value = string.Empty;
                 return false;
             }
             // If the formatted language is different from the configuration value, update configuration
-            if (language != Configuration.General.ActiveLanguage.Value)
-                Configuration.General.ActiveLanguage.Value = language;
+            if (language != activeLanguage && Configuration.ActiveLanguage != null)
+                Configuration.ActiveLanguage.Value = language;
 
             return true;
+        }
+
+        /// <summary>
+        /// 獲取已啟用的語言列表（按選擇順序，最新在前）
+        /// </summary>
+        private static IEnumerable<string> GetEnabledLanguagesInOrder()
+        {
+            string languageList = Configuration.LanguageList?.Value ?? "";
+
+            if (string.IsNullOrEmpty(languageList))
+                return Enumerable.Empty<string>();
+
+            return languageList
+                .Split(',')
+                .Select(lang => lang.Trim())
+                .Where(lang => !string.IsNullOrEmpty(lang))
+                .Select(lang => LanguageConvert("i18n/Lang/" + lang));
         }
 
         // Helper method: Get all available languages
@@ -303,8 +355,8 @@ namespace COM3D2.i18nEx.Core.Hooks
             {
                 Directory.CreateDirectory(i18nExPath);
 
-                // Return all official languages
-                return UIsystemLanguage.items.Select(item => LanguageConvert(item, true));
+                // Return all official languages (no longer marked with [KISS])
+                return UIsystemLanguage.items.Select(item => LanguageConvert(item));
             }
 
             // Get all custom languages
@@ -318,8 +370,8 @@ namespace COM3D2.i18nEx.Core.Hooks
                 })
                 .Where(language => language != null);
 
-            // Get all official languages
-            var officialLanguages = UIsystemLanguage.items.Select(item => LanguageConvert(item, true));
+            // Get all official languages (no longer marked with [KISS])
+            var officialLanguages = UIsystemLanguage.items.Select(item => LanguageConvert(item));
 
             // Merge and return all languages
             return customLanguages.Concat(officialLanguages);
@@ -336,6 +388,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             {
                 // Determine the current value to display
                 string val = string.Empty;
+                var activeLanguage = Configuration.ActiveLanguage?.Value ?? "";
 
                 // If the translation for the current value is in the dictionary
                 if (LanguageDict != null && LanguageDict.TryGetValue(pop.value, out string Term))
@@ -343,24 +396,24 @@ namespace COM3D2.i18nEx.Core.Hooks
                     if (CheckConfigLanguageName())
                     {
                         // Use configured language
-                        val = LanguageConvert("i18n/Lang/" + Configuration.General.ActiveLanguage.Value);
+                        val = LanguageConvert("i18n/Lang/" + activeLanguage);
                     }
                     else
                     {
                         // Use official language
-                        val = LanguageConvert(Term, true);
+                        val = LanguageConvert(Term);
                     }
                 }
                 // If current value is empty or force loading is required
                 else if (pop.value.IsNullOrWhiteSpace() || ForceLoadI2Name)
                 {
-                    val = LanguageConvert(UIsystemLanguage.value, true);
+                    val = LanguageConvert(UIsystemLanguage.value);
                 }
 
                 // Only update when the value actually needs to change
                 if (!string.IsNullOrEmpty(val) && val != pop.value)
                 {
-                    if (Configuration.I2Translation.VerboseLogging.Value)
+                    if (Configuration.UIVerboseLogging?.Value == true)
                     {
                         Core.Logger.LogInfo($"Setting popup value from '{pop.value}' to '{val}'");
                     }
@@ -373,10 +426,20 @@ namespace COM3D2.i18nEx.Core.Hooks
                     // Clear and repopulate the language list
                     pop.Clear();
 
+                    // 優先添加已選擇的語言（按順序）
+                    var enabledLanguages = GetEnabledLanguagesInOrder();
+                    foreach (string language in enabledLanguages)
+                    {
+                        if (!string.IsNullOrEmpty(language) && !pop.items.Contains(language))
+                        {
+                            pop.AddItem(language);
+                        }
+                    }
+
                     // Get all custom and official languages
                     var allLanguages = GetAvailableLanguages();
 
-                    // Populate the dropdown list
+                    // 添加其他未選擇的語言
                     foreach (string language in allLanguages)
                     {
                         if (!string.IsNullOrEmpty(language) && !pop.items.Contains(language))
@@ -412,18 +475,19 @@ namespace COM3D2.i18nEx.Core.Hooks
             {
                 // If language is empty, use default Japanese
                 LocalizationManager.CurrentLanguage = Product.EnumConvert.ToI2LocalizeLanguageName(Product.Language.Japanese);
-                Configuration.General.ActiveLanguage.Value = string.Empty;
+                if (Configuration.ActiveLanguage != null)
+                    Configuration.ActiveLanguage.Value = string.Empty;
                 Core.Logger.LogInfo("Using default Japanese language");
                 return;
             }
 
-            bool isOfficialLanguage = language.StartsWith("[KISS] ");
-
             // Check if the value exists in the language dictionary
             if (LanguageDict != null && LanguageDict.TryGetValue(language, out string termValue))
             {
-                // Extract actual language name
-                string prefix = isOfficialLanguage ? "System/言語/" : "i18n/Lang/";
+                // Determine if this is an official language or custom i18nEx language
+                string prefix = termValue.StartsWith("i18n/Lang/") ? "i18n/Lang/" : "System/言語/";
+                bool isOfficialLanguage = prefix == "System/言語/";
+
                 if (termValue.StartsWith(prefix) && termValue.Length > prefix.Length)
                 {
                     string languageName = termValue.Substring(prefix.Length);
@@ -437,9 +501,10 @@ namespace COM3D2.i18nEx.Core.Hooks
                         LocalizationManager.CurrentLanguage = formattedLanguage;
 
                         // If it's an official language, don't save to configuration
-                        Configuration.General.ActiveLanguage.Value = isOfficialLanguage ? string.Empty : formattedLanguage;
+                        if (Configuration.ActiveLanguage != null)
+                            Configuration.ActiveLanguage.Value = isOfficialLanguage ? string.Empty : formattedLanguage;
 
-                        if (Configuration.I2Translation.VerboseLogging.Value)
+                        if (Configuration.UIVerboseLogging?.Value == true)
                             Core.Logger.LogInfo($"Setting language to: {formattedLanguage} (from {language})");
 
                         // Reload all languages
@@ -452,7 +517,8 @@ namespace COM3D2.i18nEx.Core.Hooks
             // If unable to process the selected language, use Japanese
             Core.Logger.LogWarning($"Could not process selected language: {language}. Using Japanese instead.");
             LocalizationManager.CurrentLanguage = Product.EnumConvert.ToI2LocalizeLanguageName(Product.Language.Japanese);
-            Configuration.General.ActiveLanguage.Value = string.Empty;
+            if (Configuration.ActiveLanguage != null)
+                Configuration.ActiveLanguage.Value = string.Empty;
 
             // Reload all languages
             ReloadAllLanguages();

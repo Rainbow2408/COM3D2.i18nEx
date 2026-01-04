@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using HarmonyLib;
 using UnityEngine;
@@ -50,7 +50,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                 return true;
 
             var skipLogging = true;
-            if (Configuration.TextureReplacement.VerboseLogging.Value && previousTexName != f_strFileName)
+            if ((Configuration.TextureVerboseLogging?.Value == true) && previousTexName != f_strFileName)
             {
                 Core.Logger.LogInfo($"[COM3D2_TEX] {f_strFileName}");
                 previousTexName = f_strFileName;
@@ -62,7 +62,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (newTex == null)
                 return true;
 
-            if (Configuration.TextureReplacement.VerboseLogging.Value)
+            if (Configuration.TextureVerboseLogging?.Value == true)
                 Core.Logger.LogInfo($"Replacing {f_strFileName}");
 
             __result = new TextureResource(1, 1, TextureFormat.ARGB32, __result?.uvRects, newTex);
@@ -77,8 +77,8 @@ namespace COM3D2.i18nEx.Core.Hooks
                                         string f_strFileName,
                                         bool usePoolBuffer)
         {
-            if (!Configuration.TextureReplacement.DumpTextures.Value ||
-                Configuration.TextureReplacement.SkipDumpingCMTextures.Value)
+            if (Configuration.DumpTextures?.Value != true ||
+                Configuration.SkipDumpingCMTextures?.Value == true)
                 return;
             var tex = __result.CreateTexture2D();
             Core.TextureReplace.DumpTexture(Path.GetFileNameWithoutExtension(f_strFileName), tex);
@@ -106,7 +106,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                 return;
 
             var skipLogging = true;
-            if (Configuration.TextureReplacement.VerboseLogging.Value && previousTexName != tex?.name)
+            if ((Configuration.TextureVerboseLogging?.Value == true) && previousTexName != tex?.name)
             {
                 Core.Logger.LogInfo($"[{__instance.GetType().Name}] {tex?.name}");
                 previousTexName = tex?.name;
@@ -118,12 +118,12 @@ namespace COM3D2.i18nEx.Core.Hooks
 
             if (newData == null)
             {
-                if (Configuration.TextureReplacement.DumpTextures.Value)
+                if (Configuration.DumpTextures?.Value == true)
                     Core.TextureReplace.DumpTexture(tex.name, tex);
                 return;
             }
 
-            if (Configuration.TextureReplacement.VerboseLogging.Value)
+            if (Configuration.TextureVerboseLogging?.Value == true)
                 Core.Logger.LogInfo($"Replacing {tex?.name}");
 
             if (tex is Texture2D tex2d)
@@ -148,7 +148,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                 return;
 
             var skipLogging = true;
-            if (Configuration.TextureReplacement.VerboseLogging.Value && previousTexName != tex?.name)
+            if ((Configuration.TextureVerboseLogging?.Value == true) && previousTexName != tex?.name)
             {
                 Core.Logger.LogInfo($"[{__instance.GetType().Name}] {tex?.name}");
                 previousTexName = tex?.name;
@@ -159,12 +159,12 @@ namespace COM3D2.i18nEx.Core.Hooks
 
             if (newData == null)
             {
-                if (Configuration.TextureReplacement.DumpTextures.Value)
+                if (Configuration.DumpTextures?.Value == true)
                     Core.TextureReplace.DumpTexture(tex.name, tex);
                 return;
             }
 
-            if (Configuration.TextureReplacement.VerboseLogging.Value)
+            if (Configuration.TextureVerboseLogging?.Value == true)
                 Core.Logger.LogInfo($"Replacing {tex?.name}");
 
             if (tex is Texture2D tex2d)
@@ -188,7 +188,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                 return;
 
             var skipLogging = true;
-            if (Configuration.TextureReplacement.VerboseLogging.Value && previousTexName != value?.texture?.name)
+            if ((Configuration.TextureVerboseLogging?.Value == true) && previousTexName != value?.texture?.name)
             {
                 Core.Logger.LogInfo($"[UnityEngine.UI.Image] {value?.texture?.name}");
                 previousTexName = value?.texture?.name;
@@ -199,12 +199,12 @@ namespace COM3D2.i18nEx.Core.Hooks
 
             if (newData == null)
             {
-                if (Configuration.TextureReplacement.DumpTextures.Value)
+                if (Configuration.DumpTextures?.Value == true)
                     Core.TextureReplace.DumpTexture(value.texture.name, value.texture);
                 return;
             }
 
-            if (Configuration.TextureReplacement.VerboseLogging.Value)
+            if (Configuration.TextureVerboseLogging?.Value == true)
                 Core.Logger.LogInfo($"Replacing {value?.texture?.name}");
 
             value.texture.LoadImage(EmptyBytes);

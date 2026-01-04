@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -18,7 +18,7 @@ namespace COM3D2.i18nEx.Core.Util
 
         public static void Initialize()
         {
-            if (!Configuration.I2Translation.DumpTexts.Value || string.IsNullOrEmpty(Core.CurrentSelectedLanguage))
+            if (Configuration.DumpTexts?.Value != true || string.IsNullOrEmpty(Core.CurrentSelectedLanguage))
                 return;
 
             if (!initialized)

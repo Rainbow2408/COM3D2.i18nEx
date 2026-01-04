@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using COM3D2.i18nEx.Core.Util;
@@ -45,10 +45,10 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
 
         private void Update()
         {
-            if (Configuration.TextureReplacement.ReloadTranslationsKey.Value.IsPressed)
+            if (Configuration.TextureReloadTranslationsKey?.Value.IsDown() == true)
                 ReloadActiveTranslations();
 
-            if (Configuration.I2Translation.PrintFontNamesKey.Value.IsPressed)
+            if (Configuration.PrintFontNamesKey?.Value.IsDown() == true)
                 Core.Logger.LogInfo($"Supported fonts:\n{string.Join("\n", Font.GetOSInstalledFontNames())}");
         }
 
@@ -108,7 +108,8 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
             if (!(tex is Texture2D tex2d))
                 return;
 
-            var dumpPath = Utility.CombinePaths(Paths.TranslationsRoot, Configuration.General.ActiveLanguage.Value,
+            var activeLanguage = Configuration.ActiveLanguage?.Value ?? "English";
+            var dumpPath = Utility.CombinePaths(Paths.TranslationsRoot, activeLanguage,
                                                 "Textures", "Dumped");
 
             if (!Directory.Exists(dumpPath))
@@ -133,7 +134,7 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
 
             foreach (var lookupName in lookupNames)
             {
-                if (Configuration.TextureReplacement.VerboseLogging.Value && !skipLogging)
+                if ((Configuration.TextureVerboseLogging?.Value == true) && !skipLogging)
                     Core.Logger.LogInfo($"Trying with name {lookupName}.png");
                 if (!textureReplacements.ContainsKey(lookupName))
                     continue;
@@ -152,7 +153,8 @@ namespace COM3D2.i18nEx.Core.TranslationManagers
                 return node.Value;
             }
 
-            if (texReplacementLookup.Count == Configuration.TextureReplacement.MaxTexturesCached.Value)
+            var cacheSize = Configuration.MaxTexturesCached?.Value ?? 10;
+            if (texReplacementLookup.Count == cacheSize)
             {
                 node = texReplacementCache.Last;
                 texReplacementCache.RemoveLast();

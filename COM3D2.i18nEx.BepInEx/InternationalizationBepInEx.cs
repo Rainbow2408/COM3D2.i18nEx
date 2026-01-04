@@ -6,6 +6,7 @@ namespace COM3D2.i18nEx.BepInEx
 {
     [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
     [BepInDependency("gravydevsupreme.xunity.autotranslator", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("com.bepis.bepinex.configurationmanager", BepInDependency.DependencyFlags.SoftDependency)]
     public class InternationalizationBepInEx : BaseUnityPlugin, ILogger
     {
         private GameObject managerObject;
@@ -18,7 +19,7 @@ namespace COM3D2.i18nEx.BepInEx
             DontDestroyOnLoad(managerObject);
 
             var core = managerObject.AddComponent<Core.Core>();
-            core.Initialize(this, Paths.GameRootPath);
+            core.Initialize(this, Paths.GameRootPath, this);
         }
 
         public void LogInfo(object data)

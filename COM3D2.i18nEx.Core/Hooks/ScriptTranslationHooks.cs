@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Linq;
 using COM3D2.i18nEx.Core.TranslationManagers;
 using COM3D2.i18nEx.Core.Util;
@@ -144,7 +144,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (!string.IsNullOrEmpty(tl))
             {
                 text = $"{orig}<{TlSeparator}>{tl}";
-                if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToJapanese)
+                if (Configuration.RerouteTranslationsTo?.Value == TranslationsReroute.RouteToJapanese)
                     text = $"{tl}<{TlSeparator}>{tl}";
                 return true;
             }
@@ -158,7 +158,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                     return true;
                 }
 
-                if (Configuration.ScriptTranslations.RerouteTranslationsTo.Value == TranslationsReroute.RouteToLocal)
+                if (Configuration.RerouteTranslationsTo?.Value == TranslationsReroute.RouteToLocal)
                 {
                     text = $"{orig}<{TlSeparator}>{orig}";
                     return true;
@@ -175,7 +175,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             var tl = tlString[Product.subTitleScenarioLanguage];
             if (string.IsNullOrEmpty(orig))
             {
-                if (Configuration.ScriptTranslations.VerboseLogging.Value)
+                if (Configuration.ScriptVerboseLogging?.Value == true)
                     Core.Logger.LogInfo(
                                         $"[Script] [{fileName}] \"{orig}\" => \"{tl}\"");
                 return;
@@ -183,7 +183,7 @@ namespace COM3D2.i18nEx.Core.Hooks
 
             if (fileName == null)
             {
-                if (Configuration.ScriptTranslations.VerboseLogging.Value)
+                if (Configuration.ScriptVerboseLogging?.Value == true)
                     Core.Logger.LogWarning("Found script with no name! Skipping...");
                 return;
             }
@@ -199,11 +199,11 @@ namespace COM3D2.i18nEx.Core.Hooks
                     tls[language] = XUATInterop.MarkTranslated(tls[language]);
                 
                 tlString = new LocalizationString(tls);
-                if (Configuration.ScriptTranslations.VerboseLogging.Value)
+                if (Configuration.ScriptVerboseLogging?.Value == true)
                     Core.Logger.LogInfo(
                                         $"[Script] [{fileName}] \"{orig}\" => \"{res}\"");
             }
-            else if (Configuration.ScriptTranslations.DumpScriptTranslations.Value)
+            else if (Configuration.DumpScriptTranslations?.Value == true)
             {
                 if (Core.ScriptTranslate.WriteTranslation(fileName, orig, tl))
                     Core.Logger.LogInfo(

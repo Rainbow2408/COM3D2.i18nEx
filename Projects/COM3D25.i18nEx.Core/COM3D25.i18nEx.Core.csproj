@@ -9,15 +9,16 @@
         <DefineConstants>COM3D25;$(DefineConstants)</DefineConstants>
     </PropertyGroup>
     <ItemGroup>
-        <None Include="..\..\.editorconfig" Link=".editorconfig"/>
-        <Compile Include="..\..\COM3D2.i18nEx.Core\**\*.cs"/>
+        <None Include="..\..\.editorconfig" Link=".editorconfig" />
+        <Compile Include="..\..\COM3D2.i18nEx.Core\**\*.cs" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="ExIni" Version="1.0.2" IncludeAssets="compile"/>
-        <PackageReference Include="HarmonyX" Version="2.5.5" IncludeAssets="compile"/>
-        <PackageReference Include="UnityEngine.Modules" Version="2022.3.35" IncludeAssets="compile"/>
-        <PackageReference Include="COM3D2.GameLibs" Version="3.4*-*" IncludeAssets="compile"/>
-        <PackageReference Include="NETStandard.Library" Version="2.0.*"/>
-        <Reference Include="System.Windows.Forms"/>
+        <PackageReference Include="BepInEx.Core" Version="5.4.16" />
+        <PackageReference Include="ExIni" Version="1.0.2" IncludeAssets="compile" />
+        <PackageReference Include="HarmonyX" Version="2.5.5" IncludeAssets="compile" />
+        <PackageReference Include="UnityEngine.Modules" Version="2022.3.35" IncludeAssets="compile" />
+        <PackageReference Include="COM3D2.GameLibs" Version="3.4*-*" IncludeAssets="compile" />
+        <PackageReference Include="NETStandard.Library" Version="2.0.*" />
+        <Reference Include="System.Windows.Forms" />
     </ItemGroup>
 </Project>

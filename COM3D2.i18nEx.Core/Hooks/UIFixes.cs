@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +8,6 @@ using HarmonyLib;
 using I2.Loc;
 using Kasizuki;
 using MaidStatus;
-using Teikokusou;
 using UnityEngine;
 using UnityEngine.UI;
 using wf;
@@ -36,10 +35,12 @@ namespace COM3D2.i18nEx.Core.Hooks
         [HarmonyPostfix]
         public static void PostLoadIni()
         {
-            if (Configuration.General.FixSubtitleType.Value)
+            if (Configuration.FixSubtitleType?.Value == true)
             {
-                Configuration.ScriptTranslations.RerouteTranslationsTo.Value = TranslationsReroute.RouteToJapanese;
-                Configuration.General.FixSubtitleType.Value = false;
+                if (Configuration.RerouteTranslationsTo != null)
+                    Configuration.RerouteTranslationsTo.Value = TranslationsReroute.RouteToJapanese;
+                if (Configuration.FixSubtitleType != null)
+                    Configuration.FixSubtitleType.Value = false;
                 GameMain.Instance.CMSystem.SubtitleType = SubtitleDisplayManager.DisplayType.Original;
                 GameMain.Instance.CMSystem.SaveIni();
                 Core.Logger.LogInfo("Fixed game's subtitle type!");
@@ -74,7 +75,7 @@ namespace COM3D2.i18nEx.Core.Hooks
                 return;
 
             var term = $"General/{text.Replace(" ", "_")}";
-            if (Configuration.I2Translation.VerboseLogging.Value)
+            if (Configuration.UIVerboseLogging?.Value == true)
                 Core.Logger.LogInfo($"Trying to localize with term \"{term}\"");
             loc = go.AddComponent<Localize>();
             loc.SetTerm(term);
@@ -99,7 +100,7 @@ namespace COM3D2.i18nEx.Core.Hooks
             if (originalFont == null)
                 return null;
 
-            var customFont = Configuration.I2Translation.CustomUIFont.Value.Trim();
+            var customFont = (Configuration.CustomUIFont?.Value ?? "").Trim();
             if (string.IsNullOrEmpty(customFont) || originalFont.name == customFont)
                 return originalFont;
 

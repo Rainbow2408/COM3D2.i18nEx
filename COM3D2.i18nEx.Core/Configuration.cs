@@ -1,218 +1,365 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using BepInEx.Configuration;
 using COM3D2.i18nEx.Core.TranslationManagers;
-using COM3D2.i18nEx.Core.Util;
-using ExIni;
 using UnityEngine;
 
 namespace COM3D2.i18nEx.Core
 {
-    internal static class Configuration
+    /// <summary>
+    /// 核心配置類別 - 使用 BepInEx.Configuration
+    /// </summary>
+    public static class Configuration
     {
-        private static readonly IniFile configFile = File.Exists(Paths.ConfigurationFilePath)
-            ? IniFile.FromFile(Paths.ConfigurationFilePath)
-            : new IniFile();
+        private static bool initialized = false;
 
-        private static readonly List<IReloadable> reloadableWrappers = new();
+        #region === General Settings ===
+        
+        /// <summary>Currently selected language</summary>
+        public static ConfigEntry<string> ActiveLanguage { get; private set; }
+        
+        /// <summary>Maximum number of languages in the selector</summary>
+        public static ConfigEntry<int> MaxLanguagesInList { get; private set; }
+        
+        /// <summary>Key combination to reload configuration</summary>
+        public static ConfigEntry<KeyboardShortcut> ReloadConfigKey { get; private set; }
+        
+        /// <summary>Global key combination to reload all translations</summary>
+        public static ConfigEntry<KeyboardShortcut> GeneralReloadTranslationsKey { get; private set; }
+        
+        /// <summary>Debug key to print all language sources</summary>
+        public static ConfigEntry<KeyboardShortcut> DebugPrintLanguageSourcesKey { get; private set; }
+        
+        /// <summary>Internal: Reset game subtitle type on next run</summary>
+        public static ConfigEntry<bool> FixSubtitleType { get; private set; }
+        
+        /// <summary>Comma-separated list of enabled languages</summary>
+        public static ConfigEntry<string> LanguageList { get; private set; }
+        
+        #endregion
 
-        public static readonly GeneralConfig General = new();
-        public static readonly ScriptTranslationsConfig ScriptTranslations = new();
-        public static readonly TextureReplacementConfig TextureReplacement = new();
-        public static readonly I2TranslationConfig I2Translation = new();
+        #region === Script Translations Settings ===
+        
+        /// <summary>Dump untranslated script lines</summary>
+        public static ConfigEntry<bool> DumpScriptTranslations { get; private set; }
+        
+        /// <summary>Route translations to different textboxes</summary>
+        public static ConfigEntry<TranslationsReroute> RerouteTranslationsTo { get; private set; }
+        
+        /// <summary>Send untranslated story text to clipboard</summary>
+        public static ConfigEntry<bool> SendScriptToClipboard { get; private set; }
+        
+        /// <summary>Time to wait before sending to clipboard</summary>
+        public static ConfigEntry<double> ClipboardCaptureTime { get; private set; }
+        
+        /// <summary>Enable verbose logging for script translations</summary>
+        public static ConfigEntry<bool> ScriptVerboseLogging { get; private set; }
+        
+        /// <summary>Number of translation files cached</summary>
+        public static ConfigEntry<int> MaxTranslationFilesCached { get; private set; }
+        
+        /// <summary>Key to reload script translations</summary>
+        public static ConfigEntry<KeyboardShortcut> ScriptReloadTranslationsKey { get; private set; }
+        
+        #endregion
 
-        static Configuration()
+        #region === Texture Replacement Settings ===
+        
+        /// <summary>Dump original textures</summary>
+        public static ConfigEntry<bool> DumpTextures { get; private set; }
+        
+        /// <summary>Skip dumping game's own .tex files</summary>
+        public static ConfigEntry<bool> SkipDumpingCMTextures { get; private set; }
+        
+        /// <summary>Enable verbose logging for texture replacement</summary>
+        public static ConfigEntry<bool> TextureVerboseLogging { get; private set; }
+        
+        /// <summary>Number of texture replacements cached</summary>
+        public static ConfigEntry<int> MaxTexturesCached { get; private set; }
+        
+        /// <summary>Key to reload texture replacements</summary>
+        public static ConfigEntry<KeyboardShortcut> TextureReloadTranslationsKey { get; private set; }
+        
+        #endregion
+
+        #region === UI Translation Settings ===
+        
+        /// <summary>Switch UI to English style</summary>
+        public static ConfigEntry<bool> EngUIStyle { get; private set; }
+        
+        /// <summary>Custom UI font name</summary>
+        public static ConfigEntry<string> CustomUIFont { get; private set; }
+        
+        /// <summary>Dump untranslated UI texts</summary>
+        public static ConfigEntry<bool> DumpTexts { get; private set; }
+        
+        /// <summary>Enable custom subtitle opacity control</summary>
+        public static ConfigEntry<bool> OverrideSubtitleOpacity { get; private set; }
+        
+        /// <summary>Subtitle box opacity (0-1)</summary>
+        public static ConfigEntry<float> SubtitleOpacity { get; private set; }
+        
+        /// <summary>Enable verbose logging for UI translation</summary>
+        public static ConfigEntry<bool> UIVerboseLogging { get; private set; }
+        
+        /// <summary>Key to print font names</summary>
+        public static ConfigEntry<KeyboardShortcut> PrintFontNamesKey { get; private set; }
+        
+        /// <summary>Key to reload UI translations</summary>
+        public static ConfigEntry<KeyboardShortcut> UIReloadTranslationsKey { get; private set; }
+        
+        #endregion
+
+        /// <summary>
+        /// 初始化配置系統
+        /// </summary>
+        public static void Initialize()
         {
-            var scriptSection = configFile["ScriptTranslations"];
-            if (scriptSection.HasKey("InsertJapaneseTextIntoEnglishText"))
+            if (initialized)
+                return;
+
+            var config = Core.pluginInstance?.Config;
+            if (config == null)
             {
-                var key = scriptSection["InsertJapaneseTextIntoEnglishText"];
-                if (bool.TryParse(key.Value, out var val))
-                    ScriptTranslations.RerouteTranslationsTo.Value =
-                        val ? TranslationsReroute.RouteToLocal : TranslationsReroute.None;
-                scriptSection.DeleteKey("InsertJapaneseTextIntoEnglishText");
-                configFile.Save(Paths.ConfigurationFilePath);
+                Core.Logger.LogWarning("Plugin config not available for Configuration initialization");
+                return;
             }
+
+            BindGeneralSettings(config);
+            BindScriptTranslationSettings(config);
+            BindTextureReplacementSettings(config);
+            BindUITranslationSettings(config);
+
+            initialized = true;
+            Core.Logger.LogInfo("Configuration initialized with 25 settings");
         }
 
-        public static void Reload()
+        private static void BindGeneralSettings(ConfigFile config)
         {
-            Merge(IniFile.FromFile(Paths.ConfigurationFilePath));
-            foreach (var reloadableWrapper in reloadableWrappers)
-                reloadableWrapper.Reload();
+            ActiveLanguage = config.Bind(
+                "General",
+                "ActiveLanguage",
+                "English",
+                "Currently selected language"
+            );
+
+            MaxLanguagesInList = config.Bind(
+                "General",
+                "MaxLanguagesInList",
+                6,
+                new ConfigDescription(
+                    "Maximum number of languages to display in the in-game language selector",
+                    new AcceptableValueRange<int>(1, 20))
+            );
+
+            ReloadConfigKey = config.Bind(
+                "General",
+                "ReloadConfigKey",
+                new KeyboardShortcut(KeyCode.F12, KeyCode.LeftControl),
+                "The key to reload configuration"
+            );
+
+            GeneralReloadTranslationsKey = config.Bind(
+                "General",
+                "ReloadTranslationsKey",
+                new KeyboardShortcut(KeyCode.F12, KeyCode.LeftAlt),
+                "The key to reload translation"
+            );
+
+            DebugPrintLanguageSourcesKey = config.Bind(
+                "General",
+                "DebugPrintLanguageSourcesKey",
+                new KeyboardShortcut(KeyCode.Keypad0),
+                "Debug key to print all I2 language sources to console"
+            );
+
+            LanguageList = config.Bind(
+                "General",
+                "LanguageList",
+                "",
+                "Comma-separated list of enabled languages (managed by Language Manager GUI)"
+            );
+
+            FixSubtitleType = config.Bind(
+                "General",
+                "FixGameSubtitleType",
+                true,
+                "DO NOT TOUCH: If enabled, i18nEx will reset game subtitle type to Japanese on the next game run"
+            );
         }
 
-        private static void Merge(IniFile ini)
+        private static void BindScriptTranslationSettings(ConfigFile config)
         {
-            if (!(ini.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
-                configFile.Comments.Comments = ini.Comments.Comments.ToList();
-            foreach (IniSection section in ini.Sections)
-            {
-                IniSection iniSection = configFile[section.Section];
-                if (!(section.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
-                    iniSection.Comments.Comments = section.Comments.Comments.ToList();
-                foreach (IniKey key in section.Keys)
-                {
-                    IniKey iniKey = iniSection[key.Key];
-                    if (!(key.Comments.Comments?.All(c => c.IsNullOrWhiteSpace()) ?? true))
-                        iniKey.Comments.Comments = key.Comments.Comments.ToList();
-                    iniKey.Value = key.Value;
-                }
-            }
+            ClipboardCaptureTime = config.Bind(
+                "Script Translations",
+                "ClipboardCaptureTime",
+                0.25,
+                new ConfigDescription(
+                    "If `SendScriptToClipboard` is enabled, specifies the time to wait before sending all input to clipboard.",
+                    new AcceptableValueRange<double>(0.1, 5.0))
+            );
+
+            DumpScriptTranslations = config.Bind(
+                "Script Translations",
+                "DumpUntranslatedLines",
+                false,
+                "If enabled, dumps untranslated script lines (along with built-in translations, if present)."
+            );
+
+            MaxTranslationFilesCached = config.Bind(
+                "Script Translations",
+                "CacheSize",
+                1,
+                new ConfigDescription(
+                    "Specifies how many text translation files should be kept in memory at once\n" +
+                    "Having bigger cache can improve performance at the cost of memory usage",
+                    new AcceptableValueRange<int>(1, 50))
+            );
+
+            ScriptReloadTranslationsKey = config.Bind(
+                "Script Translations",
+                "ReloadTranslationsKey",
+                new KeyboardShortcut(KeyCode.Keypad1, KeyCode.LeftAlt),
+                "The key (or key combination) to reload all script translations."
+            );
+
+            RerouteTranslationsTo = config.Bind(
+                "Script Translations",
+                "RerouteTranslationsTo",
+                TranslationsReroute.RouteToLocal,
+                "Route translations to different textboxes:\n" +
+                "• None - Disabled (Local in Local box, Japanese in Japanese box)\n" +
+                "• RouteToLocal - Show Japanese in Local box if no translation\n" +
+                "• RouteToJapanese - Show translation in Japanese box"
+            );
+
+            SendScriptToClipboard = config.Bind(
+                "Script Translations",
+                "SendToClipboard",
+                false,
+                "Send untranslated story text to clipboard"
+            );
+
+            ScriptVerboseLogging = config.Bind(
+                "Script Translations",
+                "VerboseLogging",
+                false,
+                "If enabled, logs precise translation info\n" +
+                "Useful if you're writing new translations."
+            );
         }
 
-        private static ConfigWrapper<T> Wrap<T>(string section,
-                                                string key,
-                                                string description = "",
-                                                T @default = default,
-                                                Func<T, string> toStringConvert = null,
-                                                Func<string, T> fromStringConvert = null)
+        private static void BindTextureReplacementSettings(ConfigFile config)
         {
-            var res = new ConfigWrapper<T>(configFile, Paths.ConfigurationFilePath, section, key, description,
-                                           @default, toStringConvert, fromStringConvert);
+            DumpTextures = config.Bind(
+                "Texture Replacement",
+                "DumpOriginalTextures",
+                false,
+                "If enabled, dumps textures that have no replacements."
+            );
 
-            reloadableWrappers.Add(res);
+            MaxTexturesCached = config.Bind(
+                "Texture Replacement",
+                "CacheSize",
+                10,
+                new ConfigDescription(
+                    "Specifies how many texture replacements should be kept in memory at once\n" +
+                    "Having bigger cache can improve performance at the cost of memory usage",
+                    new AcceptableValueRange<int>(1, 50))
+            );
 
-            return res;
+            TextureReloadTranslationsKey = config.Bind(
+                "Texture Replacement",
+                "ReloadTranslationsKey",
+                new KeyboardShortcut(KeyCode.Keypad2, KeyCode.LeftAlt),
+                "The key (or key combination) to reload all translations."
+            );
+
+            SkipDumpingCMTextures = config.Bind(
+                "Texture Replacement",
+                "SkipDumpingCMTextures",
+                true,
+                "Skip dumping game's own .tex files\n" +
+                "If `DumpOriginalTextures` is enabled, setting this to `True` will disable dumping game's own .tex files\n" +
+                "Use this if you don't want to dump all in-game textures."
+            );
+
+            TextureVerboseLogging = config.Bind(
+                "Texture Replacement",
+                "VerboseLogging",
+                false,
+                "If enabled, logs precise texture replacement info\n" +
+                "Useful if you're writing new translations."
+            );
         }
 
-        internal class GeneralConfig
+        private static void BindUITranslationSettings(ConfigFile config)
         {
-            public ConfigWrapper<string> ActiveLanguage = Wrap(
-                                                               "General", "ActiveLanguage",
-                                                               "Currently selected language", "English");
+            EngUIStyle = config.Bind(
+                "UI Translation",
+                "EngUIStyle",
+                false,
+                "Switch UI to English style (disable for Japanese version)"
+            );
 
-            public ConfigWrapper<bool> FixSubtitleType = Wrap(
-                                                              "General", "FixGameSubtitleType",
-                                                              "DO NOT TOUCH: If enabled, i18nEx will reset game subtitle type to Japanese on the next game run",
-                                                              true);
+            // Get installed fonts and add empty string as first option (default/no custom font)
+            var installedFonts = Font.GetOSInstalledFontNames();
+            var fontOptions = new string[installedFonts.Length + 1];
+            fontOptions[0] = ""; // Empty = use default font
+            installedFonts.CopyTo(fontOptions, 1);
 
-            public ConfigWrapper<KeyCommand> ReloadConfigKey = Wrap(
-                                                                    "General", "ReloadConfigKey",
-                                                                    "The key to reload current configuration file",
-                                                                    new KeyCommand(KeyCode.LeftControl, KeyCode.F12),
-                                                                    KeyCommand.KeyCommandToString,
-                                                                    KeyCommand.KeyCommandFromString);
+            CustomUIFont = config.Bind(
+                "UI Translation",
+                "CustomUIFont",
+                "",
+                new ConfigDescription(
+                    "If specified, replaces the UI font with this one.\n" +
+                    "IMPORTANT: The font **must** be installed on your machine and it **must** be a TrueType font.",
+                    new AcceptableValueList<string>(fontOptions))
+            );
 
-            public ConfigWrapper<KeyCommand> ReloadTranslationsKey = Wrap(
-                                                                          "General", "ReloadConfigKey",
-                                                                          "The key to reload current configuration file",
-                                                                          new KeyCommand(KeyCode.LeftAlt, KeyCode.F12),
-                                                                          KeyCommand.KeyCommandToString,
-                                                                          KeyCommand.KeyCommandFromString);
-        }
+            DumpTexts = config.Bind(
+                "UI Translation",
+                "DumpUntranslatedUITexts",
+                false,
+                "If enabled, dumps untranslated UI texts"
+            );
 
-        internal class ScriptTranslationsConfig
-        {
-            public ConfigWrapper<double> ClipboardCaptureTime = Wrap(
-                                                                     "ScriptTranslations", "ClipboardCaptureTime",
-                                                                     "If `SendScriptToClipboard` is enabled, specifies the time to wait before sending all input to clipboard.",
-                                                                     0.25);
+            OverrideSubtitleOpacity = config.Bind(
+                "UI Translation",
+                "OverrideSubtitleOpacity",
+                false,
+                "If enabled, allows to change subtitle box opacity without affecting other elements."
+            );
 
-            public ConfigWrapper<bool> DumpScriptTranslations = Wrap(
-                                                                     "ScriptTranslations", "DumpUntranslatedLines",
-                                                                     "If enabled, dumps untranslated script lines (along with built-in translations, if present).",
-                                                                     false);
+            PrintFontNamesKey = config.Bind(
+                "UI Translation",
+                "PrintFontNamesKey",
+                new KeyboardShortcut(KeyCode.F11, KeyCode.LeftAlt),
+                "The key (or key combination) do display all supported UI fonts in the console."
+            );
 
-            public ConfigWrapper<int> MaxTranslationFilesCached = Wrap(
-                                                                       "ScriptTranslations", "CacheSize",
-                                                                       "Specifies how many text translation files should be kept in memory at once\nHaving bigger cache can improve performance at the cost of memory usage",
-                                                                       1);
+            UIReloadTranslationsKey = config.Bind(
+                "UI Translation",
+                "ReloadTranslationsKey",
+                new KeyboardShortcut(KeyCode.Keypad3, KeyCode.LeftAlt),
+                "The key (or key combination) to reload all translations."
+            );
 
-            public ConfigWrapper<KeyCommand> ReloadTranslationsKey = Wrap(
-                                                                          "ScriptTranslations", "ReloadTranslationsKey",
-                                                                          "The key (or key combination) to reload all translations.",
-                                                                          new KeyCommand(KeyCode.LeftAlt,
-                                                                           KeyCode.Keypad1),
-                                                                          KeyCommand.KeyCommandToString,
-                                                                          KeyCommand.KeyCommandFromString);
+            SubtitleOpacity = config.Bind(
+                "UI Translation",
+                "SubtitleOpacity",
+                1.0f,
+                new ConfigDescription(
+                    "If OverrideSubtitleOpacity is true, specifies opacity of the subtitle box. Must be a decimal between 0 (transparent) and 1 (opaque).",
+                    new AcceptableValueRange<float>(0.0f, 1.0f))
+            );
 
-            public ConfigWrapper<TranslationsReroute> RerouteTranslationsTo = Wrap(
-             "ScriptTranslations",
-             "RerouteTranslationsTo",
-             "Allows you to route both Local and Japanese translations into a single textbox instead of viewing both\nSupports the following values:\nNone -- Disabled. Local text is written into Local textbox; Japanese into Japanese\nRouteToLocal -- Puts Japanese text into Local textbox if there is no translation text available\nRouteToJapanese -- Puts translations into Japanese textbox if there is a translation available",
-             TranslationsReroute.RouteToLocal,
-             EnumConverter<TranslationsReroute>
-                .EnumToString,
-             EnumConverter<TranslationsReroute>
-                .EnumFromString);
-
-            public ConfigWrapper<bool> SendScriptToClipboard = Wrap(
-                                                                    "ScriptTranslations", "SendToClipboard",
-                                                                    "If enabled, sends untranslated story text to clipboard.",
-                                                                    false);
-
-            public ConfigWrapper<bool> VerboseLogging = Wrap("ScriptTranslations", "VerboseLogging",
-                                                             "If enabled, logs precise translation info\nUseful if you're writing new translations.",
-                                                             false);
-        }
-
-        internal class TextureReplacementConfig
-        {
-            public ConfigWrapper<bool> DumpTextures = Wrap("TextureReplacement", "DumpOriginalTextures",
-                                                           "If enabled, dumps textures that have no replacements.",
-                                                           false);
-
-            public ConfigWrapper<int> MaxTexturesCached = Wrap("TextureReplacement", "CacheSize",
-                                                               "Specifies how many texture replacements should be kept in memory at once\nHaving bigger cache can improve performance at the cost of memory usage",
-                                                               10);
-
-            public ConfigWrapper<KeyCommand> ReloadTranslationsKey = Wrap(
-                                                                          "TextureReplacement", "ReloadTranslationsKey",
-                                                                          "The key (or key combination) to reload all translations.",
-                                                                          new KeyCommand(KeyCode.LeftAlt,
-                                                                           KeyCode.Keypad2),
-                                                                          KeyCommand.KeyCommandToString,
-                                                                          KeyCommand.KeyCommandFromString);
-
-            public ConfigWrapper<bool> SkipDumpingCMTextures = Wrap("TextureReplacement", "SkipDumpingCMTextures",
-                                                                    "If `DumpOriginalTextures` is enabled, setting this to `True` will disable dumping game's own .tex files\nUse this if you don't want to dump all in-game textures.",
-                                                                    true);
-
-            public ConfigWrapper<bool> VerboseLogging = Wrap("TextureReplacement", "VerboseLogging",
-                                                             "If enabled, logs precise texture replacement info\nUseful if you're writing new translations.",
-                                                             false);
-        }
-
-        internal class I2TranslationConfig
-        {
-            public ConfigWrapper<bool> EngUIStyle = Wrap("I2Translation", "EngUIStyle",
-                                                         "If enabled, the user interface will switch to the English style; if not, it will remain in the Japanese version.", false);
-
-            public ConfigWrapper<string> CustomUIFont = Wrap("I2Translation", "CustomUIFont",
-                                                             "If specified, replaces the UI font with this one.\nIMPORTANT: The font **must** be installed on your machine and it **must** be a TrueType font.",
-                                                             "");
-
-            public ConfigWrapper<bool> DumpTexts = Wrap("I2Translation", "DumpUntranslatedUITexts",
-                                                        "If enabled, dumps untranslated UI texts",
-                                                        false);
-
-            public ConfigWrapper<bool> OverrideSubtitleOpacity = Wrap("I2Translation", "OverrideSubtitleOpacity",
-                                                                      "If enabled, allows to change subtitle box opacity without affecting other elements.",
-                                                                      false);
-
-            public ConfigWrapper<KeyCommand> PrintFontNamesKey = Wrap("I2Translation", "PrintFontNamesKey",
-                                                                      "The key (or key combination) do display all supported UI fonts in the console.",
-                                                                      new KeyCommand(KeyCode.LeftAlt, KeyCode.F11),
-                                                                      KeyCommand.KeyCommandToString,
-                                                                      KeyCommand.KeyCommandFromString);
-
-            public ConfigWrapper<KeyCommand> ReloadTranslationsKey = Wrap(
-                                                                          "I2Translation", "ReloadTranslationsKey",
-                                                                          "The key (or key combination) to reload all translations.",
-                                                                          new KeyCommand(KeyCode.LeftAlt,
-                                                                           KeyCode.Keypad3),
-                                                                          KeyCommand.KeyCommandToString,
-                                                                          KeyCommand.KeyCommandFromString);
-
-            public ConfigWrapper<float> SubtitleOpacity = Wrap("I2Translation", "SubtitleOpacity",
-                                                               "If OverrideSubtitleOpacity is true, specifies opacity of the subtitle box. Must be a decimal between 0 (transparent) and 1 (opaque).",
-                                                               1.0f);
-
-            public ConfigWrapper<bool> VerboseLogging = Wrap("I2Translation", "VerboseLogging",
-                                                             "If enabled, logs precise I2Loc loading and translation info\nUseful if you're debugging.",
-                                                             false);
+            UIVerboseLogging = config.Bind(
+                "UI Translation",
+                "VerboseLogging",
+                false,
+                "If enabled, logs precise I2Loc loading and translation info\n" +
+                "Useful if you're debugging."
+            );
         }
     }
 }
