@@ -27,7 +27,7 @@ namespace COM3D2.i18nEx.Core
                 Core.Logger.LogWarning("======================================");
                 Core.Logger.LogWarning($"[IMPORTANT] Old translation directory detected: {oldPath}");
                 Core.Logger.LogWarning($"Please manually move your translation files to: {TranslationsRoot}");
-                Core.Logger.LogWarning("The plugin will NOT automatically move files to prevent disk write errors.");
+                Core.Logger.LogWarning("The plugin will NOT automatically move files.");
                 Core.Logger.LogWarning("======================================");
             }
         }
