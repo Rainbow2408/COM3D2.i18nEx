@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using COM3D2.i18nEx.Core.Hooks;
 using COM3D2.i18nEx.Core.Loaders;
 using COM3D2.i18nEx.Core.TranslationManagers;
@@ -177,7 +178,47 @@ namespace COM3D2.i18nEx.Core
                 mgr.LoadLanguage();
 
             CurrentSelectedLanguage = langName;
+
             I2TranslationDump.Initialize();
+        }
+
+        private ITranslationLoader GetLoader(string loaderName)
+        {
+            if (string.IsNullOrEmpty(loaderName))
+                return new BasicTranslationLoader();
+
+            var loadersPath = Path.Combine(Paths.TranslationsRoot, "loaders");
+            if (!Directory.Exists(loadersPath))
+                Directory.CreateDirectory(loadersPath);
+
+            loaderName = loaderName.Trim();
+
+            if (loaderName == "BasicLoader")
+                return new BasicTranslationLoader();
+
+            var loaderPath = Path.Combine(loadersPath, $"{loaderName}.dll");
+            if (!File.Exists(loaderPath))
+                return new BasicTranslationLoader();
+
+            try
+            {
+                var ass = Assembly.LoadFile(loaderPath);
+                var loader = ass.GetTypes().FirstOrDefault(t => t.GetInterface(nameof(ITranslationLoader)) != null);
+
+                Logger.LogInfo($"Invoking loader {loader}");
+
+                if (loader != null)
+                    return Activator.CreateInstance(loader) as ITranslationLoader;
+
+                Logger.LogWarning(
+                                  $"Loader \"{loaderName}.dll\" doesn't contain any translation loader implementations!");
+                return new BasicTranslationLoader();
+            }
+            catch (Exception e)
+            {
+                Logger.LogWarning($"Failed to load translation loader \"{loaderName}.dll\". Reason: {e.Message}");
+                return new BasicTranslationLoader();
+            }
         }
 
         /// <summary>
@@ -188,31 +229,20 @@ namespace COM3D2.i18nEx.Core
         /// </summary>
         /// <param name="tlLang">Path to the translation language folder</param>
         /// <returns>IniFile if config exists, null otherwise</returns>
-        private static IniFile LoadLanguageConfig(string tlLang)
+        private IniFile LoadLanguageConfig(string tlPath)
         {
-            var tlConfig = Path.Combine(tlLang, "config.ini");
-            if (!File.Exists(tlConfig))
+            var iniFile = Path.Combine(tlPath, "config.ini");
+            if (!File.Exists(iniFile))
                 return null;
             try
             {
-                return IniFile.FromFile(tlConfig);
+                return IniFile.FromFile(iniFile);
             }
             catch (Exception e)
             {
-                Logger.LogWarning($"Failed to read configuration file for current translation: {e.Message}");
+                Logger.LogWarning($"Failed to read config.ini. Reason: {e.Message}");
             }
-
             return null;
-        }
-
-        private static ITranslationLoader GetLoader(string loaderName)
-        {
-            return typeof(Core).Assembly.GetTypes()
-                               .Where(t => t.IsClass && !t.IsAbstract &&
-                                           typeof(ITranslationLoader).IsAssignableFrom(t) &&
-                                           t.Name.Equals(loaderName, StringComparison.InvariantCultureIgnoreCase))
-                               .Select(t => (ITranslationLoader)Activator.CreateInstance(t)).FirstOrDefault() ??
-                   new BasicTranslationLoader();
         }
     }
 }
