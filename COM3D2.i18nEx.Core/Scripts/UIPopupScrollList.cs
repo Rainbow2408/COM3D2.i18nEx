@@ -1,3 +1,4 @@
+using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
@@ -5,12 +6,20 @@ namespace COM3D2.i18nEx.Core.Scripts
 {
     internal class UIPopupScrollList : UIPopupList
     {
-        static protected GameObject _mChild;            // Traverse Get
-        static protected bool _isValid;                 // Traverse Get
-        static protected UIPanel _mPanel;               // Traverse Get
-        static protected UISprite _mBackground;         // Traverse Get
-        static protected UISprite _mHighlight;          // Traverse Get
-        static protected int mOpenFrame = 0;
+        // 快取的欄位參照（使用 AccessTools.FieldRefAccess 以提升效能）
+        private static readonly AccessTools.FieldRef<UIPopupList, GameObject> _mChildRef =
+            AccessTools.FieldRefAccess<UIPopupList, GameObject>("mChild");
+        private static readonly AccessTools.FieldRef<UIPopupList, UIPanel> _mPanelRef =
+            AccessTools.FieldRefAccess<UIPopupList, UIPanel>("mPanel");
+        private static readonly AccessTools.FieldRef<UIPopupList, UISprite> _mBackgroundRef =
+            AccessTools.FieldRefAccess<UIPopupList, UISprite>("mBackground");
+        private static readonly AccessTools.FieldRef<UIPopupList, UISprite> _mHighlightRef =
+            AccessTools.FieldRefAccess<UIPopupList, UISprite>("mHighlight");
+        private static readonly PropertyInfo _isValidProperty =
+            AccessTools.Property(typeof(UIPopupList), "isValid");
+
+        private static int mOpenFrame = 0;
+
         protected new void OnClick()
         {
             if (mOpenFrame == Time.frameCount) return;
@@ -19,6 +28,7 @@ namespace COM3D2.i18nEx.Core.Scripts
             if (openOn == OpenOn.RightClick && UICamera.currentTouchID != -2) return;
             Show();
         }
+
         public new void Show()
         {
             // Set position to below
@@ -26,12 +36,13 @@ namespace COM3D2.i18nEx.Core.Scripts
 
             // Call original method
             base.Show();
-            // Traverse Get Values and Methods
-            _isValid = Traverse.Create(this).Method("get_isValid").GetValue<bool>();
-            _mChild = Traverse.Create(this).Field("mChild").GetValue<GameObject>();
-            _mPanel = Traverse.Create(this).Field("mPanel").GetValue<UIPanel>();
-            _mBackground = Traverse.Create(this).Field("mBackground").GetValue<UISprite>();
-            _mHighlight = Traverse.Create(this).Field("mHighlight").GetValue<UISprite>();
+
+            // 使用快取的欄位參照取得私有欄位值
+            bool _isValid = (bool)_isValidProperty.GetValue(this, null);
+            GameObject _mChild = _mChildRef(this);
+            UIPanel _mPanel = _mPanelRef(this);
+            UISprite _mBackground = _mBackgroundRef(this);
+            UISprite _mHighlight = _mHighlightRef(this);
 
             // base.Show() Postfix
             if (enabled && NGUITools.GetActive(gameObject) && _mChild != null && atlas != null && _isValid && items.Count > 0)

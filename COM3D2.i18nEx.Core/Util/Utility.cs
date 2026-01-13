@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
+using HarmonyLib;
 using I2.Loc;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -12,6 +14,7 @@ namespace COM3D2.i18nEx.Core.Util
     public static class Utility
     {
         private static HashSet<string> outputtedLogs;
+        private static MethodInfo _languageMatchesFilterMethod;
         public static bool IsNullOrWhiteSpace(this string str)
         {
             return str == null || str.All(char.IsWhiteSpace);
@@ -87,28 +90,46 @@ namespace COM3D2.i18nEx.Core.Util
 
         public static bool CheckLanguageName(string langName, out string f_lang)
         {
+            if (langName == "loaders")
+            {
+                f_lang = null;
+                return false;
+            }
+
             f_lang = ReFormatLanguageName(langName, out string message);
-            outputtedLogs ??= new();
+
             if (string.IsNullOrEmpty(f_lang))
             {
-                if (string.IsNullOrEmpty(langName))
-                    Core.Logger.LogInfo("Skip reading translation. Use built-in language instead.");
-                else
-                {
-                    var log = $"Skipping loading \"{langName}\" folder. {message}";
-                    if (!outputtedLogs.Contains(log)) Core.Logger.LogWarning(log);
-                    outputtedLogs.Add(log);
-                }
+                LogOnce($"Skipping loading \"{langName}\" folder. {message}");
                 return false;
             }
-            else if (langName != f_lang)
+
+            if (langName != f_lang)
             {
-                var log = $"Skipping loading \"{langName}\" folder. The language has been matched, but doesn't comply with the naming rules, please rename it to \"{f_lang}\"";
-                if (!outputtedLogs.Contains(log)) Core.Logger.LogWarning(log);
-                outputtedLogs.Add(log);
+                LogOnce($"Skipping loading \"{langName}\" folder. The language has been matched, but doesn't comply with the naming rules, please rename it to \"{f_lang}\"");
                 return false;
             }
+
             return true;
+        }
+
+        /// <summary>
+        /// 記錄日誌訊息，確保相同的訊息只記錄一次
+        /// </summary>
+        /// <param name="log">日誌訊息</param>
+        /// <param name="isWarning">是否為警告等級（否則為 Info 等級）</param>
+        private static void LogOnce(string log, bool isWarning = true)
+        {
+            outputtedLogs ??= new();
+            if (outputtedLogs.Contains(log))
+                return;
+
+            if (isWarning)
+                Core.Logger.LogWarning(log);
+            else
+                Core.Logger.LogInfo(log);
+
+            outputtedLogs.Add(log);
         }
 
         public static string ReFormatLanguageName(string languageName, out string message, bool useParentheses = true, bool log = false)
@@ -127,15 +148,43 @@ namespace COM3D2.i18nEx.Core.Util
                 return null;
             }
 
-            string code = GoogleLanguages.GetLanguageCode(languageName, false);
-            if (string.IsNullOrEmpty(code))
+            // 直接從字典中查找匹配的語言名稱，參考 GoogleLanguages.GetLanguageCode 方法
+            string[] filters = languageName.ToLowerInvariant().Split(" /(),".ToCharArray());
+            string result = GoogleLanguages.mLanguageDef.Keys
+                .FirstOrDefault(key => LanguageMatchesFilter(key, filters));
+
+            if (string.IsNullOrEmpty(result))
             {
+                // 嘗試從 Product.Language 枚舉轉換
                 foreach (Product.Language enumValue in Enum.GetValues(typeof(Product.Language)))
-                    if (languageName == Product.EnumConvert.GetString(enumValue)) return ReFormatLanguageName2(Product.EnumConvert.ToI2LocalizeLanguageName(enumValue), ref message, useParentheses);
+                {
+                    if (languageName == Product.EnumConvert.GetString(enumValue))
+                    {
+                        return ReFormatLanguageName2(Product.EnumConvert.ToI2LocalizeLanguageName(enumValue), ref message, useParentheses);
+                    }
+                }
                 message = $"Language \"{languageName}\" does not match the language code!";
                 return null;
             }
-            return GoogleLanguages.GetLanguageName(code, useParentheses, false);
+
+            // 直接使用找到的 Key 進行格式化，參考 GoogleLanguages.GetLanguageName 方法
+            if (!useParentheses)
+                return result;
+
+            int slashIndex = result.IndexOf('/');
+            if (slashIndex > 0)
+                return result.Substring(0, slashIndex) + " (" + result.Substring(slashIndex + 1) + ")";
+
+            return result;
+        }
+
+        /// <summary>
+        /// 呼叫 GoogleLanguages.LanguageMatchesFilter 私有方法
+        /// </summary>
+        private static bool LanguageMatchesFilter(string language, string[] filters)
+        {
+            _languageMatchesFilterMethod ??= AccessTools.Method(typeof(GoogleLanguages), "LanguageMatchesFilter");
+            return (bool)_languageMatchesFilterMethod.Invoke(null, new object[] { language, filters });
         }
     }
 }

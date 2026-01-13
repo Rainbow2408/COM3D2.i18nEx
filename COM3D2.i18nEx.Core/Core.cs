@@ -124,13 +124,17 @@ namespace COM3D2.i18nEx.Core
             // Load initial language
             var activeLanguage = Configuration.ActiveLanguage?.Value ?? "English";
             LoadLanguage(activeLanguage);
+            TranslationHooks.InitializeOfficialLanguageDict();
             
             // Subscribe to language change events
             if (Configuration.ActiveLanguage != null)
             {
                 Configuration.ActiveLanguage.SettingChanged += (sender, args) =>
                 {
+                    TranslationHooks.PrepareLanguageReload();
                     LoadLanguage(Configuration.ActiveLanguage.Value);
+                    TranslationHooks.InitializeOfficialLanguageDict();
+                    TranslationHooks.FinalizeLanguageReload();
                 };
             }
             
@@ -149,6 +153,7 @@ namespace COM3D2.i18nEx.Core
             var tlLang = Path.Combine(Paths.TranslationsRoot, langName);
             if (!Utility.CheckLanguageName(langName, out _))
             {
+                Logger.LogInfo("Skip reading translation. Use built-in language instead.");
                 TranslationLoader ??= new BasicTranslationLoader();
                 TranslationLoader?.UnloadCurrentTranslation();
                 foreach (var mgr in managers)
@@ -161,7 +166,8 @@ namespace COM3D2.i18nEx.Core
             if (!Directory.Exists(tlLang))
             {
                 Logger.LogWarning($"No translations for language \"{langName}\" was found! Create Directory.");
-                Directory.CreateDirectory(tlLang);
+                // Directory.CreateDirectory(tlLang);
+                LanguageManager.CreateLanguageFolder(tlLang);
             }
 
             TranslationLoader?.UnloadCurrentTranslation();

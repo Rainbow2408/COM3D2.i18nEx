@@ -22,6 +22,7 @@ namespace COM3D2.i18nEx.Core
         // UI 狀態
         private static Dictionary<string, bool> selectedLanguages = new Dictionary<string, bool>();
         private static Dictionary<string, bool> expandedLanguages = new Dictionary<string, bool>();
+        private static HashSet<string> disabledLanguages = new HashSet<string>();  // 禁用的官方語言
         private static bool isLanguageListExpanded = false; // Default collapsed
         private static bool isDumping = false;
         private static string dumpStatus = "";
@@ -135,6 +136,7 @@ namespace COM3D2.i18nEx.Core
         {
             selectedLanguages.Clear();
             languageSelectionOrder.Clear();
+            disabledLanguages.Clear();
 
             string languageList = Configuration.LanguageList?.Value ?? "";
 
@@ -146,10 +148,22 @@ namespace COM3D2.i18nEx.Core
                     .Where(lang => !string.IsNullOrEmpty(lang))
                     .ToList();
 
-                foreach (string lang in savedLanguages)
+                foreach (string rawLang in savedLanguages)
                 {
-                    languageSelectionOrder.Add(lang);
-                    selectedLanguages[lang] = true;
+                    // 檢查是否為禁用的語言（以 "-" 開頭）
+                    bool isDisabled = rawLang.StartsWith("-");
+                    string lang = isDisabled ? rawLang.Substring(1) : rawLang;
+
+                    if (isDisabled)
+                    {
+                        // 禁用的語言不加入選擇列表，只記錄到禁用集合
+                        disabledLanguages.Add(lang);
+                    }
+                    else
+                    {
+                        languageSelectionOrder.Add(lang);
+                        selectedLanguages[lang] = true;
+                    }
                 }
 
                 if (languageSelectionOrder.Count > 0)
@@ -158,6 +172,8 @@ namespace COM3D2.i18nEx.Core
                 }
 
                 Core.Logger.LogInfo($"Loaded language selection order: {string.Join(", ", languageSelectionOrder.ToArray())}");
+                if (disabledLanguages.Count > 0)
+                    Core.Logger.LogInfo($"Loaded disabled languages: {string.Join(", ", disabledLanguages.ToArray())}");
             }
             else
             {
@@ -187,6 +203,9 @@ namespace COM3D2.i18nEx.Core
 
             if (newSelected)
             {
+                // 如果之前是禁用狀態，從禁用列表移除
+                disabledLanguages.Remove(lang.FullName);
+
                 languageSelectionOrder.Remove(lang.FullName);
                 languageSelectionOrder.Insert(0, lang.FullName);
                 lastSelectedLanguage = lang.FullName;
@@ -208,6 +227,13 @@ namespace COM3D2.i18nEx.Core
             {
                 languageSelectionOrder.Remove(lang.FullName);
 
+                // 檢查是否為官方語言，如果是則加入禁用列表而非完全移除
+                if (Hooks.TranslationHooks.IsOfficialLanguage(Hooks.TranslationHooks.I18nPrefix + lang.FullName))
+                {
+                    disabledLanguages.Add(lang.FullName);
+                    Core.Logger.LogInfo($"Disabled official language: {lang.FullName}");
+                }
+
                 if (lastSelectedLanguage == lang.FullName && languageSelectionOrder.Count > 0)
                 {
                     lastSelectedLanguage = languageSelectionOrder[0];
@@ -223,8 +249,15 @@ namespace COM3D2.i18nEx.Core
                 .Where(lang => selectedLanguages.ContainsKey(lang) && selectedLanguages[lang])
                 .ToList();
 
+            // 將禁用的語言加上 "-" 前綴並附加到最後
+            var disabledWithPrefix = disabledLanguages
+                .Select(lang => "-" + lang)
+                .ToList();
+
+            var allLanguages = enabledLanguages.Concat(disabledWithPrefix).ToList();
+
             if (Configuration.LanguageList != null)
-                Configuration.LanguageList.Value = string.Join(",", enabledLanguages.ToArray());
+                Configuration.LanguageList.Value = string.Join(",", allLanguages.ToArray());
 
             if (enabledLanguages.Count > 0)
             {
