@@ -2,24 +2,24 @@ using System.Collections.Generic;
 using BepInEx.Logging;
 using SceneNPCEdit;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// NPC 資料源 - Main NPC Data
     /// </summary>
-    public class NPCDataSource : ApiDataSource<EditCharacterDatabase.Data>
+    public class NPCDataSource : ApiDataSourceBase<EditCharacterDatabase.Data>
     {
         public override string Name => "NPC";
 
         protected override IList<EditCharacterDatabase.Data> FetchData()
         {
-            Logger?.LogInfo("Getting NPC data");
+            Core.Logger.LogInfo("Getting NPC data");
             return EditCharacterDatabase.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(EditCharacterDatabase.Data data, int index, int total)
         {
-            Logger?.LogDebug($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
 
             // NPC first name (名前) and last name (苗字)
             if (data.npcData != null)
@@ -55,19 +55,19 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// SubMaid 資料源 - Sub Maid Data
     /// </summary>
-    public class SubMaidDataSource : ApiDataSource<SubMaid.Data>
+    public class SubMaidDataSource : ApiDataSourceBase<MaidStatus.SubMaid.Data>
     {
         public override string Name => "SubMaid";
 
-        protected override IList<SubMaid.Data> FetchData()
+        protected override IList<MaidStatus.SubMaid.Data> FetchData()
         {
-            Logger?.LogInfo("Getting SubMaid data via API");
-            return SubMaid.GetAllDatas(false);
+            Core.Logger.LogInfo("Getting SubMaid data via API");
+            return MaidStatus.SubMaid.GetAllDatas(false);
         }
 
-        protected override IEnumerable<TranslationEntry> ProcessItem(SubMaid.Data data, int index, int total)
+        protected override IEnumerable<TranslationEntry> ProcessItem(MaidStatus.SubMaid.Data data, int index, int total)
         {
-            Logger?.LogDebug($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
 
             // Process status (normal side)
             if (data.status != null)

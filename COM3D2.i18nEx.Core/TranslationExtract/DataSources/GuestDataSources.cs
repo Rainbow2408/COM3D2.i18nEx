@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using Kasizuki;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// Guest (Kasizuki) ManData 資料源 - 男性客人資料
     /// </summary>
-    public class GuestManDataSource : ApiDataSource<ManData.Data>
+    public class GuestManDataSource : ApiDataSourceBase<ManData.Data>
     {
         public override string Name => "Guest";
 
@@ -17,6 +17,8 @@ namespace TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(ManData.Data data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] GuestManData ID{data.ID}");
+
             // Guest name
             yield return new TranslationEntry
             {
@@ -49,7 +51,7 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// Guest (Kasizuki) PlayData 資料源 - 玩法資料
     /// </summary>
-    public class GuestPlayDataSource : ApiDataSource<PlayData.Data>
+    public class GuestPlayDataSource : ApiDataSourceBase<PlayData.Data>
     {
         public override string Name => "Guest";
 
@@ -60,6 +62,8 @@ namespace TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(PlayData.Data data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] GuestPlayData ID{data.ID}");
+
             // Play title
             yield return new TranslationEntry
             {
@@ -98,7 +102,7 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// Guest (Kasizuki) RoomData 資料源 - 房間資料
     /// </summary>
-    public class GuestRoomDataSource : ApiDataSource<RoomData.Data>
+    public class GuestRoomDataSource : ApiDataSourceBase<RoomData.Data>
     {
         public override string Name => "Guest";
 
@@ -109,6 +113,8 @@ namespace TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(RoomData.Data data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] GuestRoomData ID{data.ID}");
+
             // Room name
             yield return new TranslationEntry
             {

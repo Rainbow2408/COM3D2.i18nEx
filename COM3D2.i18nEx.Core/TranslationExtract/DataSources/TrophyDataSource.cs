@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// Trophy 獎盃資料源
     /// </summary>
-    public class TrophyDataSource : ApiDataSource<Trophy.Data>
+    public class TrophyDataSource : ApiDataSourceBase<Trophy.Data>
     {
         public override string Name => "Trophy";
 

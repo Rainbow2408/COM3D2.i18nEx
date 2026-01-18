@@ -10,7 +10,7 @@
     </PropertyGroup>
     <ItemGroup>
         <None Include="..\..\.editorconfig" Link=".editorconfig" />
-        <Compile Include="..\..\COM3D2.i18nEx.Core\**\*.cs" />
+        <Compile Include="..\..\COM3D2.i18nEx.Core\**\**\*.cs" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="BepInEx.Core" Version="5.4.16" />

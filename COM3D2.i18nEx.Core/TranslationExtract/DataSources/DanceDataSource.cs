@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// Dance 舞蹈資料源
     /// </summary>
-    public class DanceDataSource : ApiDataSource<DanceData>
+    public class DanceDataSource : ApiDataSourceBase<DanceData>
     {
         public override string Name => "Dance";
 
@@ -21,6 +21,8 @@ namespace TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(DanceData data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] DanceData ID{data.ID}");
+
             // Dance title
             yield return new TranslationEntry
             {

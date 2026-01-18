@@ -1,4 +1,4 @@
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract
 {
     /// <summary>
     /// 封裝單一翻譯條目的資料結構

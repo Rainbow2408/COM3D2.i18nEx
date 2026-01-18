@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using Teikokusou;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// Mansion (Teikokusou) PlayModeRoomData 資料源 - 房間與客人資料
     /// </summary>
-    public class MansionRoomDataSource : ApiDataSource<TeikokusouDatabase.PlayModeRoomData>
+    public class MansionRoomDataSource : ApiDataSourceBase<TeikokusouDatabase.PlayModeRoomData>
     {
         public override string Name => "Mansion";
 
@@ -22,6 +22,8 @@ namespace TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(TeikokusouDatabase.PlayModeRoomData data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] PlayModeRoomData ID{data.id}");
+
             // Room name
             yield return new TranslationEntry
             {
@@ -54,7 +56,7 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// Mansion (Teikokusou) EventData 資料源 - 事件資料
     /// </summary>
-    public class MansionEventDataSource : ApiDataSource<TeikokusouDatabase.Data>
+    public class MansionEventDataSource : ApiDataSourceBase<TeikokusouDatabase.EventData>
     {
         public override string Name => "Mansion";
 
@@ -63,13 +65,15 @@ namespace TranslationExtract.DataSources
             TeikokusouDatabase.CreateData();
         }
 
-        protected override IList<TeikokusouDatabase.Data> FetchData()
+        protected override IList<TeikokusouDatabase.EventData> FetchData()
         {
             return TeikokusouDatabase.GetAllDatas(false);
         }
 
-        protected override IEnumerable<TranslationEntry> ProcessItem(TeikokusouDatabase.Data data, int index, int total)
+        protected override IEnumerable<TranslationEntry> ProcessItem(TeikokusouDatabase.EventData data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+
             // Info text (conditions)
             if (!string.IsNullOrEmpty(data.infoText))
             {

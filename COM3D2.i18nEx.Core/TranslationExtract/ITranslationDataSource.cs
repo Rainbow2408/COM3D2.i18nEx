@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract
 {
     /// <summary>
     /// 翻譯資料源介面

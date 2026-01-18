@@ -1,19 +1,13 @@
 using System.Collections.Generic;
-using BepInEx.Logging;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// 基於遊戲 API 的資料源抽象基類
     /// </summary>
     /// <typeparam name="TData">API 返回的資料類型</typeparam>
-    public abstract class ApiDataSource<TData> : ITranslationDataSource
+    public abstract class ApiDataSourceBase<TData> : ITranslationDataSource
     {
-        /// <summary>
-        /// BepInEx 日誌記錄器
-        /// </summary>
-        public ManualLogSource Logger { get; set; }
-
         /// <summary>
         /// 資料源名稱
         /// </summary>
@@ -41,7 +35,7 @@ namespace TranslationExtract.DataSources
         /// <summary>
         /// 獲取所有翻譯條目，包含進度記錄
         /// </summary>
-        public IEnumerable<TranslationEntry> GetEntries()
+        public virtual IEnumerable<TranslationEntry> GetEntries()
         {
             var dataList = FetchData();
             int total = dataList.Count;
@@ -49,10 +43,7 @@ namespace TranslationExtract.DataSources
 
             foreach (var item in dataList)
             {
-                if (Logger != null)
-                {
-                    Logger.LogDebug($"[Dump{Name}] Progress [{current}/{total}]");
-                }
+                Core.Logger.LogInfo($"[Dump{Name}] Progress [{current}/{total}]");
 
                 foreach (var entry in ProcessItem(item, current, total))
                 {

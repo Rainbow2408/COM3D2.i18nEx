@@ -1,24 +1,25 @@
 using System.Collections.Generic;
 using BepInEx.Logging;
+using COM3D2.i18nEx.Core;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// 場景選擇資料源 - Scenario Events
     /// </summary>
-    public class ScenarioEventDataSource : ApiDataSource<Schedule.ScenarioData>
+    public class ScenarioEventDataSource : ApiDataSourceBase<ScenarioData>
     {
         public override string Name => "Scenario Events";
 
-        protected override IList<Schedule.ScenarioData> FetchData()
+        protected override IList<ScenarioData> FetchData()
         {
-            Logger?.LogInfo("Getting scenario event data");
+            Core.Logger.LogInfo("Getting scenario event data");
             return GameMain.Instance.ScenarioSelectMgr.GetAllScenarioData();
         }
 
-        protected override IEnumerable<TranslationEntry> ProcessItem(Schedule.ScenarioData data, int index, int total)
+        protected override IEnumerable<TranslationEntry> ProcessItem(ScenarioData data, int index, int total)
         {
-            Logger?.LogDebug($"[{Name}] Progress [{index}/{total}] ID{data.ID}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.ID}");
 
             // Title
             yield return new TranslationEntry
@@ -61,7 +62,7 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// 蜜月事件資料源 - Honeymoon Events
     /// </summary>
-    public class HoneymoonEventDataSource : ApiDataSource<Honeymoon.HoneymoonDatabase.Data>
+    public class HoneymoonEventDataSource : ApiDataSourceBase<Honeymoon.HoneymoonDatabase.EventData>
     {
         private readonly HashSet<string> locationHash = new HashSet<string>();
         private readonly List<TranslationEntry> locationEntries = new List<TranslationEntry>();
@@ -73,15 +74,15 @@ namespace TranslationExtract.DataSources
             Honeymoon.HoneymoonDatabase.CreateData();
         }
 
-        protected override IList<Honeymoon.HoneymoonDatabase.Data> FetchData()
+        protected override IList<Honeymoon.HoneymoonDatabase.EventData> FetchData()
         {
-            Logger?.LogInfo("Getting Honeymoon event data");
+            Core.Logger.LogInfo("Getting Honeymoon event data");
             return Honeymoon.HoneymoonDatabase.GetAllDatas(false);
         }
 
-        protected override IEnumerable<TranslationEntry> ProcessItem(Honeymoon.HoneymoonDatabase.Data data, int index, int total)
+        protected override IEnumerable<TranslationEntry> ProcessItem(Honeymoon.HoneymoonDatabase.EventData data, int index, int total)
         {
-            Logger?.LogDebug($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
 
             // Event name
             yield return new TranslationEntry
@@ -119,10 +120,10 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// 私密模式事件資料源 - Private Mode Events
     /// </summary>
-    public class PrivateModeEventDataSource : ApiDataSource<PrivateMaidMode.BGData>
+    public class PrivateModeEventDataSource : ApiDataSourceBase<PrivateMaidMode.DataBase.BG>
     {
-        private readonly HashSet<string> conditionHash = new HashSet<string>();
-        private readonly HashSet<string> locationHash = new HashSet<string>();
+        private readonly HashSet<string> conditionHash = new();
+        private readonly HashSet<string> locationHash = new();
 
         public override string Name => "Private Mode Events";
 
@@ -131,15 +132,15 @@ namespace TranslationExtract.DataSources
             PrivateMaidMode.DataBase.CreateData();
         }
 
-        protected override IList<PrivateMaidMode.BGData> FetchData()
+        protected override IList<PrivateMaidMode.DataBase.BG> FetchData()
         {
-            Logger?.LogInfo("Getting Private mode event data");
+            Core.Logger.LogInfo("Getting Private mode event data");
             return PrivateMaidMode.DataBase.GetAllBGDatas();
         }
 
-        protected override IEnumerable<TranslationEntry> ProcessItem(PrivateMaidMode.BGData bg, int index, int total)
+        protected override IEnumerable<TranslationEntry> ProcessItem(PrivateMaidMode.DataBase.BG bg, int index, int total)
         {
-            Logger?.LogDebug($"[{Name}] Progress [{index}/{total}] BG:{bg.uniqueName}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] BG:{bg.uniqueName}");
 
             // Background name
             yield return new TranslationEntry

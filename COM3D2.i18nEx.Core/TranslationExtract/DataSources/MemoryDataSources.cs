@@ -1,18 +1,16 @@
 using System.Collections.Generic;
-using BepInEx.Logging;
 using Teikokusou;
 
-namespace TranslationExtract.DataSources
+namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
     /// <summary>
     /// 回憶模式 Story 事件資料源 - Memory Story Events
     /// </summary>
     public class MemoryStoryDataSource : ITranslationDataSource
     {
-        private readonly HashSet<string> conditionHash = new HashSet<string>();
-        private readonly HashSet<string> titleHash = new HashSet<string>();
+        private readonly HashSet<string> conditionHash = new();
+        private readonly HashSet<string> titleHash = new();
 
-        public ManualLogSource Logger { get; set; }
         public string Name => "Memory Story Events";
 
         public void Initialize()
@@ -22,14 +20,14 @@ namespace TranslationExtract.DataSources
 
         public IEnumerable<TranslationEntry> GetEntries()
         {
-            Logger?.LogInfo("Processing Story events...");
+            Core.Logger.LogInfo("Processing Story events...");
             var storyList = FreeModeItemEveryday.CreateItemEverydayList(
                 FreeModeItemEveryday.ScnearioType.Story);
 
             int i = 1, i_total = storyList.Count;
             foreach (var item in storyList)
             {
-                Logger?.LogDebug($"[{Name}] Progress [{i}/{i_total}]");
+                Core.Logger.LogInfo($"[{Name}] Progress [{i}/{i_total}]");
 
                 // Title
                 if (!string.IsNullOrEmpty(item.title) && !titleHash.Contains(item.title))
@@ -86,7 +84,6 @@ namespace TranslationExtract.DataSources
         private readonly HashSet<string> conditionHash = new HashSet<string>();
         private readonly HashSet<string> titleHash = new HashSet<string>();
 
-        public ManualLogSource Logger { get; set; }
         public string Name => "Memory Daily Events";
 
         public void Initialize()
@@ -96,14 +93,14 @@ namespace TranslationExtract.DataSources
 
         public IEnumerable<TranslationEntry> GetEntries()
         {
-            Logger?.LogInfo("Processing Daily events...");
+            Core.Logger.LogInfo("Processing Daily events...");
             var dailyList = FreeModeItemEveryday.CreateItemEverydayList(
                 FreeModeItemEveryday.ScnearioType.Nitijyou);
 
             int i = 1, i_total = dailyList.Count;
             foreach (var item in dailyList)
             {
-                Logger?.LogDebug($"[{Name}] Progress [{i}/{i_total}]");
+                Core.Logger.LogInfo($"[{Name}] Progress [{i}/{i_total}]");
 
                 // Title
                 if (!string.IsNullOrEmpty(item.title) && !titleHash.Contains(item.title))
@@ -155,7 +152,7 @@ namespace TranslationExtract.DataSources
     /// <summary>
     /// 帝國生活模式資料源 - Empire Life Mode Data
     /// </summary>
-    public class EmpireLifeModeDataSource : ApiDataSource<EmpireLifeModeData.Data>
+    public class EmpireLifeModeDataSource : ApiDataSourceBase<EmpireLifeModeData.Data>
     {
         private readonly HashSet<string> conditionHash = new HashSet<string>();
 
@@ -168,13 +165,13 @@ namespace TranslationExtract.DataSources
 
         protected override IList<EmpireLifeModeData.Data> FetchData()
         {
-            Logger?.LogInfo("Processing Empire Life Mode events...");
+            Core.Logger.LogInfo("Processing Empire Life Mode events...");
             return EmpireLifeModeData.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(EmpireLifeModeData.Data data, int index, int total)
         {
-            Logger?.LogDebug($"[{Name}] Progress [{index}/{total}] ID{data.ID}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] EmpireLifeModeData ID{data.ID}");
 
             // Title - using unique name as key
             if (!string.IsNullOrEmpty(data.strUniqueName))
