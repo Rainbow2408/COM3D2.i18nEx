@@ -1,12 +1,12 @@
+using COM3D2.i18nEx.Core.TranslationExtract.DataSources;
+using COM3D2.i18nEx.Core.Util;
+using I2.Loc;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using COM3D2.i18nEx.Core.TranslationExtract.DataSources;
-using COM3D2.i18nEx.Core.Util;
-using I2.Loc;
 using UnityEngine;
 
 namespace COM3D2.i18nEx.Core.TranslationExtract
@@ -21,9 +21,30 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
         private static readonly Regex namePattern = new("name=(?<name>.*)");
         
         private static readonly Dictionary<string, string> NpcNames = new Dictionary<string, string>();
-        private static readonly HashSet<string> filesToSkip = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+        private static readonly HashSet<string> filesToSkip = new(StringComparer.InvariantCultureIgnoreCase);
         
         private static int translatedLines;
+
+        // 取消機制
+        private static volatile bool _cancelRequested;
+        private static string _currentOutputPath;
+        
+        // 保護鎖機制
+        private static readonly object _extractionLock = new object();
+        private static volatile bool _isExtracting;
+        
+        /// <summary>
+        /// 檢查是否正在提取中
+        /// </summary>
+        public static bool IsExtracting => _isExtracting;
+        
+        /// <summary>
+        /// 檢查是否應該取消當前操作
+        /// </summary>
+        private static bool IsCancelled()
+        {
+            return _cancelRequested;
+        }
 
         /// <summary>
         /// 提取翻譯資源到指定語言資料夾
@@ -38,92 +59,115 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
             Action<string> progressCallback,
             Action<bool, string> completionCallback)
         {
+            // 獲取鎖，確保同時只有一個提取在執行
+            lock (_extractionLock)
+            {
+                // 如果已經有提取在執行，報告錯誤
+                if (_isExtracting)
+                {
+                    completionCallback?.Invoke(false, "已有提取作業在執行中，請等待完成或取消後再試");
+                    return;
+                }
+                _isExtracting = true;
+            }
             try
             {
+                // 重置取消狀態
+                _cancelRequested = false;
+
                 // 確定輸出路徑
                 string outputPath = GetOutputPath(languageName);
+                _currentOutputPath = outputPath;
                 Core.Logger.LogInfo($"Starting extraction to: {outputPath}");
 
                 progressCallback?.Invoke("初始化提取器...");
                 translatedLines = 0;
 
-                if (options.DumpUI)
+                if (!IsCancelled() && options.DumpUI)
                 {
                     progressCallback?.Invoke("正在提取 UI 翻譯...");
-                    ExtractUI(outputPath);
+                    ExtractUI(outputPath, languageName);
                 }
 
-                if (options.DumpScripts)
+                if (!IsCancelled() && options.DumpScripts)
                 {
                     progressCallback?.Invoke("正在提取遊戲腳本...");
                     ExtractScripts(outputPath, progressCallback);
                 }
 
-                if (options.DumpItemNames)
+                if (!IsCancelled() && options.DumpItemNames)
                 {
                     progressCallback?.Invoke("正在提取物品名稱...");
                     ExtractItemNames(outputPath, options);
                 }
 
                 // DataSource based extractions
-                if (options.DumpMaidStatus)
+                if (!IsCancelled() && options.DumpMaidStatus)
                 {
                     progressCallback?.Invoke("正在提取女僕狀態...");
-                    ExtractMaidStatus(outputPath, options);
+                    ExtractMaidStatus(outputPath, languageName, options);
                 }
 
-                if (options.DumpYotogi)
+                if (!IsCancelled() && options.DumpYotogi)
                 {
                     progressCallback?.Invoke("正在提取夜伽資料...");
-                    ExtractYotogi(outputPath, options);
+                    ExtractYotogi(outputPath, languageName, options);
                 }
 
-                if (options.DumpEvents)
+                if (!IsCancelled() && options.DumpEvents)
                 {
                     progressCallback?.Invoke("正在提取劇情事件...");
-                    ExtractEvents(outputPath, options);
+                    ExtractEvents(outputPath, languageName, options);
                 }
 
-                if (options.DumpSchedule)
+                if (!IsCancelled() && options.DumpSchedule)
                 {
                     progressCallback?.Invoke("正在提取行程資料...");
-                    ExtractSchedule(outputPath, options);
+                    ExtractSchedule(outputPath, languageName, options);
                 }
 
-                if (options.DumpTrophy)
+                if (!IsCancelled() && options.DumpTrophy)
                 {
                     progressCallback?.Invoke("正在提取稱號資料...");
-                    ExtractTrophy(outputPath, options);
+                    ExtractTrophy(outputPath, languageName, options);
                 }
 
-                if (options.DumpNPC)
+                if (!IsCancelled() && options.DumpNPC)
                 {
                     progressCallback?.Invoke("正在提取 NPC 資料...");
-                    ExtractNPC(outputPath, options);
+                    ExtractNPC(outputPath, languageName, options);
                 }
 
-                if (options.DumpGuest)
+                if (!IsCancelled() && options.DumpGuest)
                 {
                     progressCallback?.Invoke("正在提取訪客模式資料...");
-                    ExtractGuest(outputPath, options);
+                    ExtractGuest(outputPath, languageName, options);
                 }
 
-                if (options.DumpDance)
+                if (!IsCancelled() && options.DumpDance)
                 {
                     progressCallback?.Invoke("正在提取舞蹈資料...");
-                    ExtractDance(outputPath, options);
+                    ExtractDance(outputPath, languageName, options);
                 }
 
-                if (options.DumpMansion)
+                if (!IsCancelled() && options.DumpMansion)
                 {
                     progressCallback?.Invoke("正在提取豪宅資料...");
-                    ExtractMansion(outputPath, options);
+                    ExtractMansion(outputPath, languageName, options);
                 }
 
-                if (options.DumpMemory)
+                if (!IsCancelled() && options.DumpMemory)
                 {
                     progressCallback?.Invoke("正在提取回憶資料...");
-                    ExtractMemory(outputPath, options);
+                    ExtractMemory(outputPath, languageName, options);
+                }
+
+                // 最終檢查是否被取消
+                if (IsCancelled())
+                {
+                    HandleCancellation(outputPath);
+                    completionCallback?.Invoke(false, "提取中斷！");
+                    return;
                 }
 
                 Core.Logger.LogInfo($"Extraction completed! Dumped {translatedLines} script lines");
@@ -135,6 +179,60 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
                 Core.Logger.LogError($"Extraction failed: {ex}");
                 completionCallback?.Invoke(false, ex.Message);
             }
+            finally
+            {
+                // 釋放鎖
+                _isExtracting = false;
+            }
+        }
+        
+        /// <summary>
+        /// 請求取消當前的提取操作
+        /// </summary>
+        public static void RequestCancel()
+        {
+            if (_currentOutputPath != null)
+            {
+                _cancelRequested = true;
+                Core.Logger.LogInfo("Extraction cancellation requested");
+            }
+        }
+        
+        /// <summary>
+        /// 處理取消操作，重新命名輸出資料夾
+        /// </summary>
+        private static void HandleCancellation(string outputPath)
+        {
+            Core.Logger.LogInfo($"Extraction cancelled, renaming output folder...");
+            
+            try
+            {
+                if (Directory.Exists(outputPath))
+                {
+                    var dirInfo = new DirectoryInfo(outputPath);
+                    var parentDir = dirInfo.Parent?.FullName ?? Paths.TranslationsRoot;
+                    var newName = "cancelled_" + dirInfo.Name;
+                    var newPath = Path.Combine(parentDir, newName);
+                    
+                    // 避免重複命名
+                    if (Directory.Exists(newPath))
+                    {
+                        Directory.Delete(newPath, true);
+                    }
+                    
+                    Directory.Move(outputPath, newPath);
+                    Core.Logger.LogInfo($"Renamed cancelled output to: {newPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Core.Logger.LogWarning($"Failed to rename cancelled output folder: {ex.Message}");
+            }
+            finally
+            {
+                _currentOutputPath = null;
+                _cancelRequested = false;
+            }
         }
 
         /// <summary>
@@ -144,19 +242,14 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
         {
             var status = LanguageManager.GetLanguageStatus(languageName);
 
-            // 如果語言已存在且有內容，輸出到 _dumped 資料夾
-            if (status == LanguageManager.LanguageStatus.Exists)
-            {
-                return Path.Combine(Paths.TranslationsRoot, $"{languageName}_dumped");
-            }
-
-            // 否則直接輸出到語言資料夾
-            return Path.Combine(Paths.TranslationsRoot, languageName);
+            // 輸出到 dumped 資料夾
+            var timestamp = DateTime.Now.ToString("HHmmss");
+            return Path.Combine(Paths.TranslationsRoot, $"{languageName}_dumped_{timestamp}");
         }
 
         #region UI Extraction
 
-        private static void ExtractUI(string outputPath)
+        private static void ExtractUI(string outputPath, string targetLanguage)
         {
             Core.Logger.LogInfo("Dumping UI localisation");
 
@@ -170,13 +263,15 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
 
             foreach (var languageSource in LocalizationManager.Sources)
             {
+                if (IsCancelled()) return;
+
                 Core.Logger.LogInfo(
                     $"Dumping {languageSource.name} with languages: {string.Join(",", languageSource.mLanguages.Select(d => d.Name).ToArray())}");
-                DumpI2Translations(languageSource, i2Path);
+                DumpI2Translations(languageSource, i2Path, targetLanguage);
             }
         }
 
-        private static void DumpI2Translations(LanguageSource src, string i2Path)
+        private static void DumpI2Translations(LanguageSource src, string i2Path, string targetLanguage)
         {
             var sourcePath = Path.Combine(i2Path, src.name);
             if (!Directory.Exists(sourcePath))
@@ -187,8 +282,20 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
             {
                 var path = Path.Combine(sourcePath, $"{category}.csv");
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, src.Export_CSV(category), UTF8);
+                
+                // 取得原始 CSV 並過濾欄位
+                var originalCsv = src.Export_CSV(category);
+                var filteredCsv = FilterCsvColumns(originalCsv, targetLanguage);
+                File.WriteAllText(path, filteredCsv, UTF8);
             }
+        }
+
+        /// <summary>
+        /// 過濾 CSV 欄位，只保留 Key, Type, Desc, Japanese, 目標語言
+        /// </summary>
+        private static string FilterCsvColumns(string csvContent, string targetLanguage)
+        {
+            return CsvHelper.FilterColumns(csvContent, targetLanguage);
         }
 
         #endregion
@@ -207,6 +314,8 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
 
             foreach (var scriptFile in scripts)
             {
+                if (IsCancelled()) return;
+
                 count++;
                 if (count % 100 == 0)
                 {
@@ -501,44 +610,51 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
 
             var swDict = new Dictionary<string, StreamWriter>();
 
-            foreach (var menu in menus)
-            {
-                try
+            try
+			{
+                foreach (var menu in menus)
                 {
-                    using var f = GameUty.FileOpen(menu);
-                    using var br = new BinaryReader(new MemoryStream(f.ReadAll()));
-                    Core.Logger.LogInfo(menu);
-
-                    br.ReadString();
-                    br.ReadInt32();
-                    br.ReadString();
-                    var filename = Path.GetFileNameWithoutExtension(menu);
-                    var name = br.ReadString();
-                    var category = br.ReadString().ToLowerInvariant();
-                    var info = br.ReadString();
-
-                    if (!swDict.TryGetValue(category, out var sw))
+                    try
                     {
-                        swDict[category] =
-                            sw = new StreamWriter(Path.Combine(unitPath, $"{category}.csv"), false, encoding);
-                        sw.WriteLine("Key,Type,Desc,Japanese,English");
+                        if (IsCancelled()) return;
+
+                        using var f = GameUty.FileOpen(menu);
+                        using var br = new BinaryReader(new MemoryStream(f.ReadAll()));
+                        Core.Logger.LogInfo(menu);
+			    
+                        br.ReadString();
+                        br.ReadInt32();
+                        br.ReadString();
+                        var filename = Path.GetFileNameWithoutExtension(menu);
+                        var name = br.ReadString();
+                        var category = br.ReadString().ToLowerInvariant();
+                        var info = br.ReadString();
+			    
+                        if (!swDict.TryGetValue(category, out var sw))
+                        {
+                            swDict[category] =
+                                sw = new StreamWriter(Path.Combine(unitPath, $"{category}.csv"), false, encoding);
+                            sw.WriteLine("Key,Type,Desc,Japanese,English");
+                        }
+			    
+                        if (opts.SkipTranslatedItems &&
+                            LocalizationManager.TryGetTranslation($"{category}/{filename}|name", out var _))
+                            continue;
+			    
+                        sw.WriteLine($"{filename}|name,Text,,{EscapeCSVItem(name)},{EscapeCSVItem(name)}");
+                        sw.WriteLine($"{filename}|info,Text,,{EscapeCSVItem(info)},{EscapeCSVItem(info)}");
                     }
-
-                    if (opts.SkipTranslatedItems &&
-                        LocalizationManager.TryGetTranslation($"{category}/{filename}|name", out var _))
-                        continue;
-
-                    sw.WriteLine($"{filename}|name,Text,,{EscapeCSVItem(name)},{EscapeCSVItem(name)}");
-                    sw.WriteLine($"{filename}|info,Text,,{EscapeCSVItem(info)},{EscapeCSVItem(info)}");
-                }
-                catch (Exception ex)
-                {
-                    Core.Logger.LogWarning($"Failed to process menu {menu}: {ex.Message}");
+                    catch (Exception ex)
+                    {
+                        Core.Logger.LogWarning($"Failed to process menu {menu}: {ex.Message}");
+                    }
                 }
             }
-
-            foreach (var keyValuePair in swDict)
-                keyValuePair.Value.Dispose();
+            finally
+            {
+                foreach (var keyValuePair in swDict)
+                    keyValuePair.Value.Dispose();
+			}
         }
 
         private static string EscapeCSVItem(string str)
@@ -554,10 +670,10 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
 
         #region DataSource Extraction Methods
 
-        private static void ExtractDataSource(string outputPath, ITranslationDataSource source, ExtractOptions opts)
+        private static void ExtractDataSource(string outputPath, string languageName, ITranslationDataSource source, ExtractOptions opts)
         {
             var unitPath = Path.Combine(Path.Combine(outputPath, "UI"), "Dynamic");
-            using var sw = new CsvWriter();
+            using var sw = new CsvWriter(languageName);
 
             Core.Logger.LogInfo($"Getting {source.Name} data");
             source.Initialize();
@@ -569,7 +685,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
             sw.Flush();
         }
 
-        private static void ExtractMaidStatus(string outputPath, ExtractOptions opts)
+        private static void ExtractMaidStatus(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("Maid Status",
                 new PersonalDataSource(),
@@ -577,75 +693,75 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
                 new JobClassDataSource(),
                 new TitleDataSource(),
                 new FeatureDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
-        private static void ExtractYotogi(string outputPath, ExtractOptions opts)
+        private static void ExtractYotogi(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("Yotogi",
                 new YotogiSkillDataSource(),
                 new YotogiCommandDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
-        private static void ExtractEvents(string outputPath, ExtractOptions opts)
+        private static void ExtractEvents(string outputPath, string languageName, ExtractOptions opts)
         {
-            ExtractDataSource(outputPath, new ScenarioEventDataSource(), opts);
-            ExtractDataSource(outputPath, new HoneymoonEventDataSource(), opts);
-            ExtractDataSource(outputPath, new PrivateModeEventDataSource(), opts);
+            ExtractDataSource(outputPath, languageName, new ScenarioEventDataSource(), opts);
+            ExtractDataSource(outputPath, languageName, new HoneymoonEventDataSource(), opts);
+            ExtractDataSource(outputPath, languageName, new PrivateModeEventDataSource(), opts);
         }
 
-        private static void ExtractSchedule(string outputPath, ExtractOptions opts)
+        private static void ExtractSchedule(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("Schedule",
                 new ScheduleTrainingDataSource(),
                 new ScheduleYotogiDataSource(),
                 new ScheduleCategoryDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
-        private static void ExtractTrophy(string outputPath, ExtractOptions opts)
+        private static void ExtractTrophy(string outputPath, string languageName, ExtractOptions opts)
         {
-            ExtractDataSource(outputPath, new TrophyDataSource(), opts);
+            ExtractDataSource(outputPath, languageName, new TrophyDataSource(), opts);
         }
 
-        private static void ExtractNPC(string outputPath, ExtractOptions opts)
+        private static void ExtractNPC(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("NPC",
                 new NPCDataSource(),
                 new SubMaidDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
-        private static void ExtractGuest(string outputPath, ExtractOptions opts)
+        private static void ExtractGuest(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("Guest",
                 new GuestManDataSource(),
                 new GuestPlayDataSource(),
                 new GuestRoomDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
-        private static void ExtractDance(string outputPath, ExtractOptions opts)
+        private static void ExtractDance(string outputPath, string languageName, ExtractOptions opts)
         {
-            ExtractDataSource(outputPath, new DanceDataSource(), opts);
+            ExtractDataSource(outputPath, languageName, new DanceDataSource(), opts);
         }
 
-        private static void ExtractMansion(string outputPath, ExtractOptions opts)
+        private static void ExtractMansion(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("Mansion",
                 new MansionRoomDataSource(),
                 new MansionEventDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
-        private static void ExtractMemory(string outputPath, ExtractOptions opts)
+        private static void ExtractMemory(string outputPath, string languageName, ExtractOptions opts)
         {
             var source = new CompositeDataSourceBase("Memory",
                 new MemoryStoryDataSource(),
                 new MemoryDailyDataSource(),
                 new EmpireLifeModeDataSource());
-            ExtractDataSource(outputPath, source, opts);
+            ExtractDataSource(outputPath, languageName, source, opts);
         }
 
         #endregion

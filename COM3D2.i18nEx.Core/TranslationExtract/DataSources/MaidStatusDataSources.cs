@@ -13,7 +13,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<Personal.Data> FetchData()
         {
-            Core.Logger.LogInfo("Getting personality data");
+            Core.Logger.LogInfo($"[{Name}] Getting personality data via API");
             return Personal.GetAllDatas(false);
         }
 
@@ -39,7 +39,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<YotogiClass.Data> FetchData()
         {
-            Core.Logger.LogInfo("Getting yotogi class data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return YotogiClass.GetAllDatas(false);
         }
 
@@ -74,7 +74,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<JobClass.Data> FetchData()
         {
-            Core.Logger.LogInfo("Getting job class data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return JobClass.GetAllDatas(false);
         }
 
@@ -114,7 +114,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         public IEnumerable<TranslationEntry> GetEntries()
         {
-            Core.Logger.LogInfo("Getting title data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via traverse API");
 
             var title_data_list_ = Traverse.CreateWithType("MaidStatus.Title")
                 .Field("checkAchivementList")
@@ -146,7 +146,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<Feature.Data> FetchData()
         {
-            Core.Logger.LogInfo("Getting feature data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return Feature.GetAllDatas(false);
         }
 

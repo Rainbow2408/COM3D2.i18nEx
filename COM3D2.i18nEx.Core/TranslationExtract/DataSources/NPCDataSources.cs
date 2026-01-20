@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using BepInEx.Logging;
 using SceneNPCEdit;
 
 namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
@@ -13,13 +12,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<EditCharacterDatabase.Data> FetchData()
         {
-            Core.Logger.LogInfo("Getting NPC data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return EditCharacterDatabase.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(EditCharacterDatabase.Data data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] name ID{data.id}");
 
             // NPC first name (名前) and last name (苗字)
             if (data.npcData != null)
@@ -61,13 +60,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<MaidStatus.SubMaid.Data> FetchData()
         {
-            Core.Logger.LogInfo("Getting SubMaid data via API");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return MaidStatus.SubMaid.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(MaidStatus.SubMaid.Data data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] name ID{data.id}");
 
             // Process status (normal side)
             if (data.status != null)

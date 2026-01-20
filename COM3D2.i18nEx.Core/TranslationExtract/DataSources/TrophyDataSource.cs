@@ -11,11 +11,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<Trophy.Data> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return Trophy.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(Trophy.Data data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID:{data.id}");
             // Trophy name
             yield return new TranslationEntry
             {

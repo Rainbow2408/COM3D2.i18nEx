@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using BepInEx.Logging;
-using COM3D2.i18nEx.Core;
 
 namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
@@ -13,7 +11,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<ScenarioData> FetchData()
         {
-            Core.Logger.LogInfo("Getting scenario event data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return GameMain.Instance.ScenarioSelectMgr.GetAllScenarioData();
         }
 
@@ -64,8 +62,8 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
     /// </summary>
     public class HoneymoonEventDataSource : ApiDataSourceBase<Honeymoon.HoneymoonDatabase.EventData>
     {
-        private readonly HashSet<string> locationHash = new HashSet<string>();
-        private readonly List<TranslationEntry> locationEntries = new List<TranslationEntry>();
+        private readonly HashSet<string> locationHash = new();
+        private readonly List<TranslationEntry> locationEntries = new();
 
         public override string Name => "Honeymoon Events";
 
@@ -76,7 +74,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<Honeymoon.HoneymoonDatabase.EventData> FetchData()
         {
-            Core.Logger.LogInfo("Getting Honeymoon event data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return Honeymoon.HoneymoonDatabase.GetAllDatas(false);
         }
 
@@ -134,7 +132,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<PrivateMaidMode.DataBase.BG> FetchData()
         {
-            Core.Logger.LogInfo("Getting Private mode event data");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return PrivateMaidMode.DataBase.GetAllBGDatas();
         }
 

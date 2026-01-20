@@ -33,7 +33,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
         public virtual void Initialize() { }
 
         /// <summary>
-        /// 獲取所有翻譯條目，包含進度記錄
+        /// 獲取所有翻譯條目
         /// </summary>
         public virtual IEnumerable<TranslationEntry> GetEntries()
         {
@@ -43,8 +43,6 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
             foreach (var item in dataList)
             {
-                Core.Logger.LogInfo($"[Dump{Name}] Progress [{current}/{total}]");
-
                 foreach (var entry in ProcessItem(item, current, total))
                 {
                     yield return entry;

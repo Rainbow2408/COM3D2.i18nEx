@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using BepInEx;
 using BepInEx.Configuration;
+using COM3D2.i18nEx.Core.TranslationExtract;
 using COM3D2.i18nEx.Core.Util;
 using UnityEngine;
 
@@ -20,11 +19,12 @@ namespace COM3D2.i18nEx.Core
         private static bool configManagerAvailable = false;
 
         // UI 狀態
-        private static Dictionary<string, bool> selectedLanguages = new Dictionary<string, bool>();
-        private static Dictionary<string, bool> expandedLanguages = new Dictionary<string, bool>();
-        private static HashSet<string> disabledLanguages = new HashSet<string>();  // 禁用的官方語言
+        private static Dictionary<string, bool> selectedLanguages = new();
+        private static Dictionary<string, bool> expandedLanguages = new();
+        private static HashSet<string> disabledLanguages = new();  // 禁用的官方語言
         private static bool isLanguageListExpanded = false; // Default collapsed
         private static bool isDumping = false;
+        private static bool isCancelling = false;  // 正在取消中狀態
         private static string dumpStatus = "";
         private static string dumpingLanguage = null;
 
@@ -34,11 +34,28 @@ namespace COM3D2.i18nEx.Core
         private static List<string> dumpLogs = new List<string>();
         private static Vector2 scrollPosition = Vector2.zero;
 
+        // 提取選項狀態
+        private static bool isDumpOptionsExpanded = true;
+        private static bool optDumpUI = true;
+        private static bool optDumpScripts = true;
+        private static bool optDumpItemNames = true;
+        private static bool optDumpMaidStatus = true;
+        private static bool optDumpYotogi = true;
+        private static bool optDumpEvents = true;
+        private static bool optDumpSchedule = true;
+        private static bool optDumpTrophy = true;
+        private static bool optDumpNPC = true;
+        private static bool optDumpGuest = true;
+        private static bool optDumpDance = true;
+        private static bool optDumpMansion = true;
+        private static bool optDumpMemory = true;
+        private static bool optSkipTranslated = false;
+
         // UI 常數
         private const int COLUMNS_PER_ROW = 4;
         private const int INDENT_SPACE = 20;
         private const int REGIONAL_LABEL_WIDTH = 140;
-        private const int FIXED_HEIGHT = 450;
+        private const int FIXED_HEIGHT = 396;
 
         /// <summary>
         /// 檢測 ConfigurationManager 是否可用
@@ -552,31 +569,69 @@ namespace COM3D2.i18nEx.Core
             isDumping = true;
             dumpingLanguage = languageName;
             dumpStatus = "準備提取資源...";
+            dumpLogs.Clear();
 
             BepInEx.ThreadingHelper.Instance.StartAsyncInvoke(() =>
             {
                 try
                 {
-                    System.Threading.Thread.Sleep(1000);
-                    dumpStatus = "正在掃描遊戲腳本...";
+                    var options = new ExtractOptions
+                    {
+                        DumpUI = optDumpUI,
+                        DumpScripts = optDumpScripts,
+                        DumpItemNames = optDumpItemNames,
+                        DumpMaidStatus = optDumpMaidStatus,
+                        DumpYotogi = optDumpYotogi,
+                        DumpEvents = optDumpEvents,
+                        DumpSchedule = optDumpSchedule,
+                        DumpTrophy = optDumpTrophy,
+                        DumpNPC = optDumpNPC,
+                        DumpGuest = optDumpGuest,
+                        DumpDance = optDumpDance,
+                        DumpMansion = optDumpMansion,
+                        DumpMemory = optDumpMemory,
+                        SkipTranslatedItems = optSkipTranslated
+                    };
 
-                    System.Threading.Thread.Sleep(1000);
-                    dumpStatus = "正在提取 UI 翻譯...";
-
-                    System.Threading.Thread.Sleep(1000);
-                    dumpStatus = "提取完成！";
+                    TranslationExtractor.ExtractToLanguage(
+                        languageName,
+                        options,
+                        progress =>
+                        {
+                            dumpStatus = progress;
+                            dumpLogs.Add(progress);
+                            Core.Logger.LogInfo($"[Dump] {progress}");
+                        },
+                        (success, message) =>
+                        {
+                            if (success)
+                            {
+                                dumpStatus = "✓ 提取完成！";
+                                dumpLogs.Add("提取完成！");
+                                Core.Logger.LogInfo($"Dump completed for language: {languageName}");
+                            }
+                            else
+                            {
+                                dumpStatus = $"✗ 提取失敗: {message}";
+                                dumpLogs.Add($"提取失敗: {message}");
+                                Core.Logger.LogWarning($"Dump failed for {languageName}: {message}");
+                            }
+                        }
+                    );
 
                     return () =>
                     {
+                        // 延遲結束狀態，讓用戶看到完成訊息
+                        System.Threading.Thread.Sleep(2000);
                         isDumping = false;
                         dumpingLanguage = null;
-                        Core.Logger.LogInfo($"Dump completed for language: {languageName}");
                     };
                 }
                 catch (Exception ex)
                 {
                     Core.Logger.LogError($"Dump failed: {ex}");
                     dumpStatus = $"提取失敗: {ex.Message}";
+                    dumpLogs.Add($"錯誤: {ex.Message}");
                     return () =>
                     {
                         isDumping = false;
@@ -588,19 +643,32 @@ namespace COM3D2.i18nEx.Core
 
         private static void CancelDump()
         {
-            if (dumpingLanguage != null)
-            {
-                string newName = "manual_del_" + dumpingLanguage;
-                LanguageManager.RenameLanguageFolder(dumpingLanguage, newName);
-            }
-
-            isDumping = false;
-            dumpingLanguage = null;
-            dumpStatus = "已取消";
+            // 請求 TranslationExtractor 取消操作
+            TranslationExtractor.RequestCancel();
+            
+            // 設定正在取消狀態
+            isCancelling = true;
+            dumpStatus = "正在取消...";
         }
 
         private static void DrawDumpPanel()
         {
+            // 只在 Layout 階段更新狀態，確保 Layout 和 Repaint 使用相同狀態
+            if (Event.current.type == EventType.Layout)
+            {
+                if (isCancelling && !TranslationExtractor.IsExtracting)
+                {
+                    isCancelling = false;
+                    isDumping = false;
+                    dumpingLanguage = null;
+                    dumpStatus = "已取消";
+                }
+            }
+            
+            // 捕獲狀態快照，確保整個繪製過程使用相同的值
+            bool currentIsDumping = isDumping;
+            bool currentIsCancelling = isCancelling;
+            
             GUILayout.BeginVertical(GUI.skin.box);
 
             try
@@ -613,7 +681,7 @@ namespace COM3D2.i18nEx.Core
                     GUILayout.Label($"最後選擇語言: {displayLang}", GUILayout.Width(300));
                     GUILayout.FlexibleSpace();
 
-                    if (!isDumping)
+                    if (!currentIsDumping && !currentIsCancelling)
                     {
                         bool canDump = !string.IsNullOrEmpty(lastSelectedLanguage) &&
                                        selectedLanguages.ContainsKey(lastSelectedLanguage) &&
@@ -626,6 +694,13 @@ namespace COM3D2.i18nEx.Core
                             StartDump(lastSelectedLanguage);
                         }
 
+                        GUI.enabled = true;
+                    }
+                    else if (currentIsCancelling)
+                    {
+                        // 正在取消中，禁用按鈕
+                        GUI.enabled = false;
+                        GUILayout.Button("正在取消...", GUILayout.Width(120));
                         GUI.enabled = true;
                     }
                     else
@@ -641,28 +716,133 @@ namespace COM3D2.i18nEx.Core
                     GUILayout.EndHorizontal();
                 }
 
-                if (isDumping)
+                if (currentIsDumping || currentIsCancelling)
                 {
                     GUILayout.Space(5);
                     GUILayout.Label("注：提取資源中，請不要離開此窗口",
                         new GUIStyle(GUI.skin.label) { normal = { textColor = Color.yellow } });
 
-                    if (!string.IsNullOrEmpty(dumpStatus))
-                    {
-                        GUILayout.Label($"[Log] {dumpStatus}", GUI.skin.label);
-                    }
+                    // 複製到局部變數以避免異步修改導致的問題
+                    string currentStatus = dumpStatus ?? "";
+                    GUILayout.Label($"[狀態] {currentStatus}", GUI.skin.label);
 
-                    int startIndex = dumpLogs.Count > 5 ? dumpLogs.Count - 5 : 0;
-                    for (int i = startIndex; i < dumpLogs.Count; i++)
+                    // 使用固定數量的 Label 控件避免 Layout/Repaint 不匹配
+                    // 取最後 5 條 log，不足則顯示空行
+                    var logsCopy = dumpLogs.ToArray();
+                    int logCount = logsCopy.Length;
+                    int displayCount = 5;
+                    int startIndex = logCount > displayCount ? logCount - displayCount : 0;
+
+                    for (int i = 0; i < displayCount; i++)
                     {
-                        GUILayout.Label($"[Log] {dumpLogs[i]}", GUI.skin.label);
+                        int logIndex = startIndex + i;
+                        string logText = (logIndex < logCount) ? $"[Log] {logsCopy[logIndex]}" : "";
+                        GUILayout.Label(logText, GUI.skin.label);
                     }
+                }
+                else
+                {
+                    // 提取選項區塊（非提取中時顯示）
+                    GUILayout.Space(5);
+                    DrawDumpOptions();
                 }
             }
             finally
             {
                 GUILayout.EndVertical();
             }
+        }
+
+        private static void DrawDumpOptions()
+        {
+            GUILayout.BeginHorizontal();
+            try
+            {
+                string toggleText = isDumpOptionsExpanded ? "[收起選項 ▲]" : "[展開選項 ▼]";
+                if (GUILayout.Button(toggleText, GUILayout.Width(100)))
+                {
+                    isDumpOptionsExpanded = !isDumpOptionsExpanded;
+                }
+                GUILayout.FlexibleSpace();
+
+                // 快速選擇按鈕
+                if (GUILayout.Button("全選", GUILayout.Width(50)))
+                {
+                    SetAllDumpOptions(true);
+                }
+                if (GUILayout.Button("全不選", GUILayout.Width(60)))
+                {
+                    SetAllDumpOptions(false);
+                }
+            }
+            finally
+            {
+                GUILayout.EndHorizontal();
+            }
+
+            if (isDumpOptionsExpanded)
+            {
+                GUILayout.BeginVertical(GUI.skin.box);
+                try
+                {
+                    GUILayout.Label("基本選項:", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
+                    GUILayout.BeginHorizontal();
+                    optDumpUI = GUILayout.Toggle(optDumpUI, "UI 翻譯", GUILayout.Width(100));
+                    optDumpScripts = GUILayout.Toggle(optDumpScripts, "遊戲腳本", GUILayout.Width(100));
+                    optDumpItemNames = GUILayout.Toggle(optDumpItemNames, "物品名稱", GUILayout.Width(100));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(5);
+                    GUILayout.Label("動態資料:", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
+
+                    // 第一行
+                    GUILayout.BeginHorizontal();
+                    optDumpMaidStatus = GUILayout.Toggle(optDumpMaidStatus, "女僕狀態", GUILayout.Width(100));
+                    optDumpYotogi = GUILayout.Toggle(optDumpYotogi, "夜伽資料", GUILayout.Width(100));
+                    optDumpEvents = GUILayout.Toggle(optDumpEvents, "劇情事件", GUILayout.Width(100));
+                    optDumpSchedule = GUILayout.Toggle(optDumpSchedule, "行程資料", GUILayout.Width(100));
+                    GUILayout.EndHorizontal();
+
+                    // 第二行
+                    GUILayout.BeginHorizontal();
+                    optDumpTrophy = GUILayout.Toggle(optDumpTrophy, "稱號資料", GUILayout.Width(100));
+                    optDumpNPC = GUILayout.Toggle(optDumpNPC, "NPC 資料", GUILayout.Width(100));
+                    optDumpGuest = GUILayout.Toggle(optDumpGuest, "訪客模式", GUILayout.Width(100));
+                    optDumpDance = GUILayout.Toggle(optDumpDance, "舞蹈資料", GUILayout.Width(100));
+                    GUILayout.EndHorizontal();
+
+                    // 第三行
+                    GUILayout.BeginHorizontal();
+                    optDumpMansion = GUILayout.Toggle(optDumpMansion, "豪宅資料", GUILayout.Width(100));
+                    optDumpMemory = GUILayout.Toggle(optDumpMemory, "回憶資料", GUILayout.Width(100));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.Space(5);
+                    GUILayout.Label("其他選項:", new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold });
+                    optSkipTranslated = GUILayout.Toggle(optSkipTranslated, "跳過已翻譯項目");
+                }
+                finally
+                {
+                    GUILayout.EndVertical();
+                }
+            }
+        }
+
+        private static void SetAllDumpOptions(bool value)
+        {
+            optDumpUI = value;
+            optDumpScripts = value;
+            optDumpItemNames = value;
+            optDumpMaidStatus = value;
+            optDumpYotogi = value;
+            optDumpEvents = value;
+            optDumpSchedule = value;
+            optDumpTrophy = value;
+            optDumpNPC = value;
+            optDumpGuest = value;
+            optDumpDance = value;
+            optDumpMansion = value;
+            optDumpMemory = value;
         }
 
         #endregion

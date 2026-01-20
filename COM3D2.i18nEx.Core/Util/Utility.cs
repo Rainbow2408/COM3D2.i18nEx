@@ -90,7 +90,7 @@ namespace COM3D2.i18nEx.Core.Util
 
         public static bool CheckLanguageName(string langName, out string f_lang)
         {
-            if (langName == "loaders")
+            if (langName == "loaders" || langName.Contains("dumped") || langName.StartsWith("cancelled_"))
             {
                 f_lang = null;
                 return false;

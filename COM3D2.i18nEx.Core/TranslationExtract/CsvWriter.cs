@@ -1,3 +1,4 @@
+using COM3D2.i18nEx.Core.Util;
 using I2.Loc;
 using System;
 using System.Collections.Generic;
@@ -8,26 +9,36 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
 {
     /// <summary>
     /// CSV 寫入器，用於生成翻譯 CSV 檔案
+    /// 支援多個 Term 前綴，每個前綴獨立輸出為一個 CSV 檔案
     /// </summary>
     internal class CsvWriter : IDisposable
     {
         private bool disposed = false;
-        private HashSet<string> TermNames;
-        private string Term;
-        private int pos;
-        private bool initialized;
-        private StreamWriter Sw;
-        private StringBuilder stringBuilder;
-        private readonly string Header = "Key,Type,Desc,Japanese,English";
+        private readonly string targetLanguage;
+        private readonly string Header;
 
-        private static string EscapeCSVItem(string str)
+        /// <summary>
+        /// 建構函數
+        /// </summary>
+        /// <param name="targetLanguage">目標語言名稱，用於 CSV 標題</param>
+        public CsvWriter(string targetLanguage = "English")
         {
-            if (string.IsNullOrEmpty(str))
-                return str;
-            if (str.Contains("\n") || str.Contains("\"") || str.Contains(","))
-                return $"\"{str.Replace("\"", "\"\"")}\"";
-            return str;
+            this.targetLanguage = targetLanguage;
+            this.Header = $"Key,Type,Desc,Japanese,{targetLanguage}";
         }
+        // 每個 Term 前綴的寫入器資料
+        private class TermWriter
+        {
+            public StreamWriter Sw;
+            public StringBuilder StringBuilder = new StringBuilder();
+            public HashSet<string> TermNames = new HashSet<string>();
+            public int Pos;
+        }
+        
+        private readonly Dictionary<string, TermWriter> writers = new Dictionary<string, TermWriter>();
+        private string unitPath;
+
+
 
         /// <summary>
         /// 寫入一筆翻譯資料
@@ -42,34 +53,37 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
             if (datas.Length != 5)
                 throw new ArgumentException("datas.Length != 5");
 
-            pos = datas[0].IndexOf('/');
-            if (!initialized)
-            {
-                if (pos < 0)
-                    throw new ArgumentException("Cannot find Term separator '/'");
+            this.unitPath = unitPath;
+            
+            int pos = datas[0].IndexOf('/');
+            if (pos < 0)
+                throw new ArgumentException("Cannot find Term separator '/'");
 
-                Term = datas[0].Substring(0, pos);
+            string term = datas[0].Substring(0, pos);
+            
+            // 取得或建立此 Term 的寫入器
+            if (!writers.TryGetValue(term, out var writer))
+            {
                 Directory.CreateDirectory(unitPath);
-                Sw = new StreamWriter(Path.Combine(unitPath, $"{Term}.csv"), false, new UTF8Encoding(true));
-                Sw.WriteLine(Header);
-                TermNames = new HashSet<string>();
-                stringBuilder = new StringBuilder();
-                initialized = true;
+                writer = new TermWriter
+                {
+                    Pos = pos,
+                    Sw = new StreamWriter(Path.Combine(unitPath, $"{term}.csv"), false, new UTF8Encoding(true))
+                };
+                writer.Sw.WriteLine(Header);
+                writers[term] = writer;
             }
 
-            if (Term != datas[0].Substring(0, pos))
-                throw new ArgumentException($"Different Term: expected '{Term}', got '{datas[0].Substring(0, pos)}'");
-
-            if (TermNames.Contains(datas[0]) || (skipIfExists && LocalizationManager.TryGetTranslation(datas[0], out var _)))
+            if (writer.TermNames.Contains(datas[0]) || (skipIfExists && LocalizationManager.TryGetTranslation(datas[0], out var _)))
                 return;
 
-            stringBuilder.Append(datas[0]).Append(',')
+            writer.StringBuilder.Append(datas[0]).Append(',')
                          .Append(datas[1]).Append(',')
                          .Append(datas[2]).Append(',')
-                         .Append(EscapeCSVItem(datas[3])).Append(',')
-                         .Append(EscapeCSVItem(datas[4])).AppendLine();
+                         .Append(CsvHelper.Escape(datas[3])).Append(',')
+                         .Append(CsvHelper.Escape(datas[4])).AppendLine();
 
-            TermNames.Add(datas[0]);
+            writer.TermNames.Add(datas[0]);
         }
 
         /// <summary>
@@ -89,28 +103,37 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
         }
 
         /// <summary>
-        /// 刷新並寫入 CSV 內容
+        /// 刷新並寫入所有 CSV 內容
         /// </summary>
         internal void Flush()
         {
-            if (!initialized || Sw == null)
-                return;
-
-            var lines = stringBuilder.ToString().Split('\n');
-
-#if COM3D25
-            stringBuilder.Clear();
-#else
-            stringBuilder.Length = 0;
-#endif
-
-            foreach (var line in lines)
+            foreach (var kvp in writers)
             {
-                var str = (line.IndexOf('/') == pos) ? line.Substring(pos + 1) : line;
-                stringBuilder.Append(str).Append('\n');
+                var writer = kvp.Value;
+                if (writer.Sw == null || writer.StringBuilder.Length == 0)
+                    continue;
+
+                var lines = writer.StringBuilder.ToString().Split('\n');
+
+                // 處理輸出內容（移除 Term 前綴）
+                var output = new System.Text.StringBuilder();
+                foreach (var line in lines)
+                {
+                    if (string.IsNullOrEmpty(line))
+                        continue;
+                    var str = (line.IndexOf('/') == writer.Pos) ? line.Substring(writer.Pos + 1) : line;
+                    output.Append(str).Append('\n');
+                }
+                writer.Sw.Write(output.ToString());
+                writer.Sw.Flush();
+
+                // 清空 StringBuilder，防止二次 Flush 導致重複輸出
+#if COM3D25
+                writer.StringBuilder.Clear();
+#else
+                writer.StringBuilder.Length = 0;
+#endif
             }
-            Sw.Write(stringBuilder.ToString());
-            Sw.Flush();
         }
 
         public void Dispose()
@@ -120,17 +143,20 @@ namespace COM3D2.i18nEx.Core.TranslationExtract
 
             Flush();
 
-            if (Sw != null)
+            foreach (var kvp in writers)
             {
-                Sw.Close();
-                Sw.Dispose();
-                Sw = null;
+                var writer = kvp.Value;
+                if (writer.Sw != null)
+                {
+                    writer.Sw.Close();
+                    writer.Sw.Dispose();
+                    writer.Sw = null;
+                }
+                writer.TermNames = null;
+                writer.StringBuilder = null;
             }
+            writers.Clear();
 
-            TermNames = null;
-            Term = null;
-            initialized = false;
-            stringBuilder = null;
             disposed = true;
             GC.SuppressFinalize(this);
         }

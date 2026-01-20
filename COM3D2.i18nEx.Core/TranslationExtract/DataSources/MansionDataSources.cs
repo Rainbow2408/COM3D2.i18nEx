@@ -17,6 +17,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<TeikokusouDatabase.PlayModeRoomData> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting play mode room data via API");
             return TeikokusouDatabase.playmodeRoomData;
         }
 
@@ -67,12 +68,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<TeikokusouDatabase.EventData> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting event data via API");
             return TeikokusouDatabase.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(TeikokusouDatabase.EventData data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.id}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] EventData ID{data.id}");
 
             // Info text (conditions)
             if (!string.IsNullOrEmpty(data.infoText))

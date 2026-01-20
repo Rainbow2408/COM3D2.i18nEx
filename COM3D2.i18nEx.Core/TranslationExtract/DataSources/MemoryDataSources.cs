@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Teikokusou;
 
 namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 {
@@ -20,14 +19,14 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         public IEnumerable<TranslationEntry> GetEntries()
         {
-            Core.Logger.LogInfo("Processing Story events...");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             var storyList = FreeModeItemEveryday.CreateItemEverydayList(
                 FreeModeItemEveryday.ScnearioType.Story);
 
             int i = 1, i_total = storyList.Count;
             foreach (var item in storyList)
             {
-                Core.Logger.LogInfo($"[{Name}] Progress [{i}/{i_total}]");
+                Core.Logger.LogInfo($"[{Name}] Progress [{i}/{i_total}] item ID{item.item_id}");
 
                 // Title
                 if (!string.IsNullOrEmpty(item.title) && !titleHash.Contains(item.title))
@@ -81,8 +80,8 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
     /// </summary>
     public class MemoryDailyDataSource : ITranslationDataSource
     {
-        private readonly HashSet<string> conditionHash = new HashSet<string>();
-        private readonly HashSet<string> titleHash = new HashSet<string>();
+        private readonly HashSet<string> conditionHash = new();
+        private readonly HashSet<string> titleHash = new();
 
         public string Name => "Memory Daily Events";
 
@@ -93,14 +92,14 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         public IEnumerable<TranslationEntry> GetEntries()
         {
-            Core.Logger.LogInfo("Processing Daily events...");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             var dailyList = FreeModeItemEveryday.CreateItemEverydayList(
                 FreeModeItemEveryday.ScnearioType.Nitijyou);
 
             int i = 1, i_total = dailyList.Count;
             foreach (var item in dailyList)
             {
-                Core.Logger.LogInfo($"[{Name}] Progress [{i}/{i_total}]");
+                Core.Logger.LogInfo($"[{Name}] Progress [{i}/{i_total}] item ID{item.item_id}");
 
                 // Title
                 if (!string.IsNullOrEmpty(item.title) && !titleHash.Contains(item.title))
@@ -154,7 +153,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
     /// </summary>
     public class EmpireLifeModeDataSource : ApiDataSourceBase<EmpireLifeModeData.Data>
     {
-        private readonly HashSet<string> conditionHash = new HashSet<string>();
+        private readonly HashSet<string> conditionHash = new();
 
         public override string Name => "Empire Life Mode";
 
@@ -165,13 +164,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<EmpireLifeModeData.Data> FetchData()
         {
-            Core.Logger.LogInfo("Processing Empire Life Mode events...");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return EmpireLifeModeData.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(EmpireLifeModeData.Data data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] EmpireLifeModeData ID{data.ID}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID{data.ID}");
 
             // Title - using unique name as key
             if (!string.IsNullOrEmpty(data.strUniqueName))

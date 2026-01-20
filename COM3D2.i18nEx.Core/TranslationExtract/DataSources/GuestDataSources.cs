@@ -12,12 +12,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<ManData.Data> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting man data via API");
             return ManData.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(ManData.Data data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] GuestManData ID{data.ID}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ManData ID{data.ID}");
 
             // Guest name
             yield return new TranslationEntry
@@ -57,12 +58,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<PlayData.Data> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting play data via API");
             return PlayData.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(PlayData.Data data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] GuestPlayData ID{data.ID}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] PlayData ID{data.ID}");
 
             // Play title
             yield return new TranslationEntry
@@ -108,12 +110,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<RoomData.Data> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting room data via API");
             return RoomData.GetAllDatas(false);
         }
 
         protected override IEnumerable<TranslationEntry> ProcessItem(RoomData.Data data, int index, int total)
         {
-            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] GuestRoomData ID{data.ID}");
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] RoomData ID{data.ID}");
 
             // Room name
             yield return new TranslationEntry

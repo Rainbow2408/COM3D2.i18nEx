@@ -8,13 +8,13 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
     /// </summary>
     public class ScheduleTrainingDataSource : ApiDataSourceBase<ScheduleCSVData.Training>
     {
-        private readonly HashSet<string> nameHash = new HashSet<string>();
+        private readonly HashSet<string> nameHash = new();
 
         public override string Name => "Schedule Training";
 
         protected override IList<ScheduleCSVData.Training> FetchData()
         {
-            Core.Logger.LogInfo("Getting schedule training data via ScheduleCSVData API");
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             var trainingData = ScheduleCSVData.TrainingData;
             var result = new List<ScheduleCSVData.Training>(trainingData.Count);
             foreach (var kvp in trainingData)
@@ -26,6 +26,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(ScheduleCSVData.Training data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID:{data.id}");
             // 項目名稱
             if (!string.IsNullOrEmpty(data.name) && !nameHash.Contains(data.name))
             {
@@ -45,14 +46,14 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
     /// </summary>
     public class ScheduleYotogiDataSource : ApiDataSourceBase<ScheduleCSVData.Yotogi>
     {
-        private readonly HashSet<string> nameHash = new HashSet<string>();
-        private readonly HashSet<string> conditionHash = new HashSet<string>();
+        private readonly HashSet<string> nameHash = new();
+        private readonly HashSet<string> conditionHash = new();
 
         public override string Name => "Schedule Yotogi";
 
         protected override IList<ScheduleCSVData.Yotogi> FetchData()
         {
-            Core.Logger.LogInfo("Getting schedule yotogi data via ScheduleCSVData API");
+            Core.Logger.LogInfo($"[{Name}] Getting data via API");
             var yotogiData = ScheduleCSVData.YotogiData;
             var result = new List<ScheduleCSVData.Yotogi>(yotogiData.Count);
             foreach (var kvp in yotogiData)
@@ -64,6 +65,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IEnumerable<TranslationEntry> ProcessItem(ScheduleCSVData.Yotogi data, int index, int total)
         {
+            Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] ID:{data.id}");
             // 項目名稱
             if (!string.IsNullOrEmpty(data.name) && !nameHash.Contains(data.name))
             {
@@ -121,12 +123,14 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         public IEnumerable<TranslationEntry> GetEntries()
         {
-            Core.Logger.LogInfo("Getting schedule category names");
+            Core.Logger.LogInfo($"[{Name}] Getting names via API");
 
             if (ScheduleCSVData.TaskCategoryNameMap != null)
             {
+                int index = 1, total = ScheduleCSVData.TaskCategoryNameMap.Count;
                 foreach (var kvp in ScheduleCSVData.TaskCategoryNameMap)
                 {
+                    Core.Logger.LogInfo($"[{Name}] Progress [{index}/{total}] name ID:{kvp.Key}");
                     if (!string.IsNullOrEmpty(kvp.Value))
                     {
                         yield return new TranslationEntry
@@ -136,6 +140,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
                             Original = kvp.Value
                         };
                     }
+                    index++;
                 }
             }
         }

@@ -63,13 +63,6 @@ namespace COM3D2.i18nEx.Core.Util
             return true;
         }
 
-        private static string EscapeCsv(this string str, char delimiter = ',')
-        {
-            if (str.Contains("\n") || str.Contains(delimiter.ToString()))
-                return $"\"{str.Replace("\"", "\"\"")}\"";
-            return str;
-        }
-
         [HarmonyPatch(typeof(LocalizationManager), nameof(LocalizationManager.TryGetTranslation))]
         [HarmonyPostfix]
         public static void PostTryGetTranslation(ref bool __result, string Term)
@@ -83,7 +76,7 @@ namespace COM3D2.i18nEx.Core.Util
             var csvPath = Path.Combine(extractPath, $"{mainCategory}.csv");
             if (!File.Exists(csvPath))
                 File.WriteAllText(csvPath, $"Key,Type,Desc,Japanese,{Core.CurrentSelectedLanguage}\n", Utf8);
-            File.AppendAllText(csvPath, $"{restTerm.EscapeCsv()},Text,,,\n", Utf8);
+            File.AppendAllText(csvPath, $"{CsvHelper.Escape(restTerm)},Text,,,\n", Utf8);
 
             DumpedTerms.Add(Term);
         }

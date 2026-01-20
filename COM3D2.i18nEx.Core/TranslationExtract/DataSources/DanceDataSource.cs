@@ -16,6 +16,7 @@ namespace COM3D2.i18nEx.Core.TranslationExtract.DataSources
 
         protected override IList<DanceData> FetchData()
         {
+            Core.Logger.LogInfo($"[{Name}] Getting datas via API");
             return DanceSelect.GetDanceDataList();
         }
 
